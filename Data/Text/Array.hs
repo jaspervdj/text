@@ -63,17 +63,18 @@ import Control.Exception (assert)
 import Data.Bits ((.&.), xor)
 import Data.Text.UnsafeShift (shiftL, shiftR)
 import GHC.Base (ByteArray#, MutableByteArray#, Int(..),
-                 indexWord16Array#, indexWordArray#, newByteArray#,
-                 readWord16Array#, readWordArray#, unsafeCoerce#,
-                 writeWord16Array#, writeWordArray#)
+                 indexWord8Array#, indexWordArray#, newByteArray#,
+                 readWord8Array#, readWordArray#, unsafeCoerce#,
+                 writeWord8Array#, writeWordArray#)
 import GHC.ST (ST(..), runST)
-import GHC.Word (Word16(..), Word(..))
+import GHC.Word (Word8(..), Word(..))
 import Prelude hiding (length, read)
 
 -- | Immutable array type.
 data Array = Array {
       aBA :: ByteArray#
 #if defined(ASSERTS)
+      -- TODO: We won't need this anymore
     , aLen :: {-# UNPACK #-} !Int -- length (in units of Word16, not bytes)
 #endif
     }
@@ -82,6 +83,7 @@ data Array = Array {
 data MArray s = MArray {
       maBA :: MutableByteArray# s
 #if defined(ASSERTS)
+      -- TODO: We won't need this anymore
     , maLen :: {-# UNPACK #-} !Int -- length (in units of Word16, not bytes)
 #endif
     }
@@ -134,10 +136,10 @@ bytesInArray n = n `shiftL` 1
 
 -- | Unchecked read of an immutable array.  May return garbage or
 -- crash on an out-of-bounds access.
-unsafeIndex :: Array -> Int -> Word16
+unsafeIndex :: Array -> Int -> Word8
 unsafeIndex Array{..} i@(I# i#) =
   CHECK_BOUNDS("unsafeIndex",aLen,i)
-    case indexWord16Array# aBA i# of r# -> (W16# r#)
+    case indexWord8Array# aBA i# of r# -> (W8# r#)
 {-# INLINE unsafeIndex #-}
 
 -- | Unchecked read of an immutable array.  May return garbage or
@@ -150,19 +152,19 @@ unsafeIndexWord Array{..} i@(I# i#) =
 
 -- | Unchecked read of a mutable array.  May return garbage or
 -- crash on an out-of-bounds access.
-unsafeRead :: MArray s -> Int -> ST s Word16
+unsafeRead :: MArray s -> Int -> ST s Word8
 unsafeRead MArray{..} i@(I# i#) = ST $ \s# ->
   CHECK_BOUNDS("unsafeRead",maLen,i)
-  case readWord16Array# maBA i# s# of
-    (# s2#, r# #) -> (# s2#, W16# r# #)
+  case readWord8Array# maBA i# s# of
+    (# s2#, r# #) -> (# s2#, W8# r# #)
 {-# INLINE unsafeRead #-}
 
 -- | Unchecked write of a mutable array.  May return garbage or crash
 -- on an out-of-bounds access.
-unsafeWrite :: MArray s -> Int -> Word16 -> ST s ()
-unsafeWrite MArray{..} i@(I# i#) (W16# e#) = ST $ \s1# ->
+unsafeWrite :: MArray s -> Int -> Word8 -> ST s ()
+unsafeWrite MArray{..} i@(I# i#) (W8# e#) = ST $ \s1# ->
   CHECK_BOUNDS("unsafeWrite",maLen,i)
-  case writeWord16Array# maBA i# e# s1# of
+  case writeWord8Array# maBA i# e# s1# of
     s2# -> (# s2#, () #)
 {-# INLINE unsafeWrite #-}
 
@@ -185,7 +187,7 @@ unsafeWriteWord MArray{..} i@(I# i#) (W# e#) = ST $ \s1# ->
 {-# INLINE unsafeWriteWord #-}
 
 -- | Convert an immutable array to a list.
-toList :: Array -> Int -> Int -> [Word16]
+toList :: Array -> Int -> Int -> [Word8]
 toList ary off len = loop 0
     where loop i | i < len   = unsafeIndex ary (off+i) : loop (i+1)
                  | otherwise = []
@@ -208,7 +210,7 @@ run2 k = runST (do
                  return (arr,b))
 
 -- | The amount to divide or multiply by to switch between units of
--- 'Word16' and units of 'Word'.
+-- 'Word8' and units of 'Word'.
 wordFactor :: Int
 wordFactor = SIZEOF_HSWORD `shiftR` 1
 
