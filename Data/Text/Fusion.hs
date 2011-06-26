@@ -71,12 +71,12 @@ stream (Text arr off len) = Stream next off (maxSize len)
       !end = off+len
       next !i
           | i >= end  = Done
-          | n < 0x80  = Yield (unsafeChr8 n)       (i + 1)
-          | n < 0xC0  = Yield (U8.chr2 n n2)       (i + 2)
-          | n < 0xE0  = Yield (U8.chr3 n n2 n3)    (i + 3)
-          | otherwise = Yield (U8.chr4 n n2 n3 n4) (i + 4)
+          | n1 < 0xC0 = Yield (unsafeChr8 n1)       (i + 1)
+          | n1 < 0xE0 = Yield (U8.chr2 n1 n2)       (i + 2)
+          | n1 < 0xF0 = Yield (U8.chr3 n1 n2 n3)    (i + 3)
+          | otherwise = Yield (U8.chr4 n1 n2 n3 n4) (i + 4)
           where
-            n  = A.unsafeIndex arr i
+            n1 = A.unsafeIndex arr i
             n2 = A.unsafeIndex arr (i + 1)
             n3 = A.unsafeIndex arr (i + 2)
             n4 = A.unsafeIndex arr (i + 3)
@@ -89,13 +89,13 @@ reverseStream (Text arr off len) = Stream next (off+len-1) (maxSize len)
     where
       {-# INLINE next #-}
       next !i
-          | i < off                    = Done
-          | n < 0x80  = Yield (unsafeChr8 n)       (i - 1)
-          | n < 0xC0  = Yield (U8.chr2 n n2)       (i - 2)
-          | n < 0xE0  = Yield (U8.chr3 n n2 n3)    (i - 3)
-          | otherwise = Yield (U8.chr4 n n2 n3 n4) (i - 4)
+          | i < off   = Done
+          | n1 < 0xC0 = Yield (unsafeChr8 n1)       (i - 1)
+          | n1 < 0xE0 = Yield (U8.chr2 n1 n2)       (i - 2)
+          | n1 < 0xF0 = Yield (U8.chr3 n1 n2 n3)    (i - 3)
+          | otherwise = Yield (U8.chr4 n1 n2 n3 n4) (i - 4)
           where
-            n  = A.unsafeIndex arr i
+            n1 = A.unsafeIndex arr i
             n2 = A.unsafeIndex arr (i - 1)
             n3 = A.unsafeIndex arr (i - 2)
             n4 = A.unsafeIndex arr (i - 3)
