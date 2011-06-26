@@ -75,11 +75,11 @@ stream (Text arr off len) = Stream next off (maxSize len)
           | n1 < 0xE0 = Yield (U8.chr2 n1 n2)       (i + 2)
           | n1 < 0xF0 = Yield (U8.chr3 n1 n2 n3)    (i + 3)
           | otherwise = Yield (U8.chr4 n1 n2 n3 n4) (i + 4)
-          where
-            n1 = A.unsafeIndex arr i
-            n2 = A.unsafeIndex arr (i + 1)
-            n3 = A.unsafeIndex arr (i + 2)
-            n4 = A.unsafeIndex arr (i + 3)
+        where
+          n1 = A.unsafeIndex arr i
+          n2 = A.unsafeIndex arr (i + 1)
+          n3 = A.unsafeIndex arr (i + 2)
+          n4 = A.unsafeIndex arr (i + 3)
 {-# INLINE [0] stream #-}
 
 -- | /O(n)/ Convert a 'Text' into a 'Stream Char', but iterate

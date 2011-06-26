@@ -20,9 +20,9 @@ module Data.Text.Unsafe
     , reverseIter
     , unsafeHead
     , unsafeTail
-    , lengthWord16
-    , takeWord16
-    , dropWord16
+    , lengthWord8
+    , takeWord8
+    , dropWord8
     ) where
      
 #if defined(ASSERTS)
@@ -133,19 +133,19 @@ inlineInterleaveST (ST m) = ST $ \ s ->
     let r = case m s of (# _, res #) -> res in (# s, r #)
 {-# INLINE inlineInterleaveST #-}
 
--- | /O(1)/ Return the length of a 'Text' in units of 'Word16'.  This
+-- | /O(1)/ Return the length of a 'Text' in units of 'Word8'.  This
 -- is useful for sizing a target array appropriately before using
 -- 'unsafeCopyToPtr'.
-lengthWord16 :: Text -> Int
-lengthWord16 (Text _arr _off len) = len
-{-# INLINE lengthWord16 #-}
+lengthWord8 :: Text -> Int
+lengthWord8 (Text _arr _off len) = len
+{-# INLINE lengthWord8 #-}
 
 -- | /O(1)/ Unchecked take of 'k' 'Word16's from the front of a 'Text'.
-takeWord16 :: Int -> Text -> Text
-takeWord16 k (Text arr off _len) = Text arr off k
-{-# INLINE takeWord16 #-}
+takeWord8 :: Int -> Text -> Text
+takeWord8 k (Text arr off _len) = Text arr off k
+{-# INLINE takeWord8 #-}
 
 -- | /O(1)/ Unchecked drop of 'k' 'Word16's from the front of a 'Text'.
-dropWord16 :: Int -> Text -> Text
-dropWord16 k (Text arr off len) = Text arr (off+k) (len-k)
-{-# INLINE dropWord16 #-}
+dropWord8 :: Int -> Text -> Text
+dropWord8 k (Text arr off len) = Text arr (off+k) (len-k)
+{-# INLINE dropWord8 #-}

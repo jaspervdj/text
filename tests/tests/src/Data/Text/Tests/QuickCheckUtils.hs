@@ -35,7 +35,7 @@ import Data.Bits ((.&.))
 import Data.Char (chr)
 import Data.Word (Word8, Word16)
 import Data.String (IsString, fromString)
-import Data.Text.Foreign (I16)
+import Data.Text.Foreign (I8)
 import Debug.Trace (trace)
 import System.Random (Random (..), RandomGen)
 import Test.QuickCheck hiding ((.&.))
@@ -52,11 +52,11 @@ import qualified System.IO as IO
 
 import Data.Text.Tests.Utils
 
-instance Random I16 where
+instance Random I8 where
     randomR = integralRandomR
     random  = randomR (minBound,maxBound)
 
-instance Arbitrary I16 where
+instance Arbitrary I8 where
     arbitrary     = choose (minBound,maxBound)
 
 instance Arbitrary B.ByteString where

@@ -34,7 +34,7 @@ module Data.Text.Encoding.Utf8
 import Control.Exception (assert)
 #endif
 import Data.Bits ((.&.))
-import Data.Text.UnsafeChar (ord)
+import Data.Text.UnsafeChar (ord, unsafeChr8)
 import Data.Text.UnsafeShift (shiftR)
 import GHC.Exts
 import GHC.Word (Word8(..))
@@ -117,6 +117,10 @@ chr4 (W8# x1#) (W8# x2#) (W8# x3#) (W8# x4#) =
       !z3# = uncheckedIShiftL# (y3# -# 0x80#) 6#
       !z4# = y4# -# 0x80#
 {-# INLINE chr4 #-}
+
+-- | Hybrid combination of 'unsafeChr8', 'chr2', 'chr3' and 'chr4'. This
+-- function will not touch the bytes it doesn't need.
+-- TODO
 
 validate1 :: Word8 -> Bool
 validate1 x1 = x1 <= 0x7F

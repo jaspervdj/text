@@ -210,7 +210,7 @@ import qualified Data.Text.Fusion.Common as S
 import Data.Text.Fusion (stream, reverseStream, unstream)
 import Data.Text.Internal (Text(..), empty, firstf, safe, text, textP)
 import qualified Prelude as P
-import Data.Text.Unsafe (Iter(..), iter, iter_, lengthWord16, reverseIter,
+import Data.Text.Unsafe (Iter(..), iter, iter_, lengthWord8, reverseIter,
                          unsafeHead, unsafeTail)
 import Data.Text.UnsafeChar (unsafeChr8)
 import qualified Data.Text.Util as U
@@ -776,7 +776,7 @@ concat ts = case ts' of
               _ -> Text (A.run go) 0 len
   where
     ts' = L.filter (not . null) ts
-    len = sumP "concat" $ L.map lengthWord16 ts'
+    len = sumP "concat" $ L.map lengthWord8 ts'
     go = do
       arr <- A.new len
       let step i (Text a o l) =
