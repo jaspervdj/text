@@ -212,7 +212,7 @@ import Data.Text.Internal (Text(..), empty, firstf, safe, text, textP)
 import qualified Prelude as P
 import Data.Text.Unsafe (Iter(..), iter, iter_, lengthWord16, reverseIter,
                          unsafeHead, unsafeTail)
-import Data.Text.UnsafeChar (unsafeChr)
+import Data.Text.UnsafeChar (unsafeChr8)
 import qualified Data.Text.Util as U
 import qualified Data.Text.Encoding.Utf16 as U16
 import Data.Text.Search (indices)
@@ -444,9 +444,10 @@ second f (a, b) = (a, f b)
 -- non-empty.  Subject to fusion.
 last :: Text -> Char
 last (Text arr off len)
+    -- TODO
     | len <= 0                 = emptyError "last"
-    | n < 0xDC00 || n > 0xDFFF = unsafeChr n
-    | otherwise                = U16.chr2 n0 n
+    | n < 0xDC00 || n > 0xDFFF = unsafeChr8 n
+    | otherwise                = '\0'
     where n  = A.unsafeIndex arr (off+len-1)
           n0 = A.unsafeIndex arr (off+len-2)
 {-# INLINE [1] last #-}

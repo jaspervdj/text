@@ -30,7 +30,7 @@ import Control.Exception (assert)
 #endif
 import Data.Text.Encoding.Utf16 (chr2)
 import Data.Text.Internal (Text(..))
-import Data.Text.UnsafeChar (unsafeChr)
+import Data.Text.UnsafeChar (unsafeChr8)
 import GHC.ST (ST(..))
 import qualified Data.Text.Array as A
 #if defined(__GLASGOW_HASKELL__)
@@ -47,10 +47,14 @@ import GHC.Base (realWorld#)
 -- the programmer to provide a proof that the 'Text' is non-empty.
 unsafeHead :: Text -> Char
 unsafeHead (Text arr off _len)
-    | m < 0xD800 || m > 0xDBFF = unsafeChr m
-    | otherwise                = chr2 m n
-    where m = A.unsafeIndex arr off
-          n = A.unsafeIndex arr (off+1)
+    -- TODO
+    | n1 < 0xD800 || n1 > 0xDBFF = unsafeChr8 n1
+    | otherwise                  = '\0'
+  where
+    n1 = A.unsafeIndex arr off
+    n2 = A.unsafeIndex arr (off + 1)
+    n3 = A.unsafeIndex arr (off + 2)
+    n4 = A.unsafeIndex arr (off + 3)
 {-# INLINE unsafeHead #-}
 
 -- | /O(1)/ A variant of 'tail' for non-empty 'Text'. 'unsafeHead'
@@ -72,8 +76,9 @@ data Iter = Iter {-# UNPACK #-} !Char {-# UNPACK #-} !Int
 -- the next offset to iterate at.
 iter :: Text -> Int -> Iter
 iter (Text arr off _len) i
-    | m < 0xD800 || m > 0xDBFF = Iter (unsafeChr m) 1
-    | otherwise                = Iter (chr2 m n) 2
+    -- TODO
+    | m < 0xD800 || m > 0xDBFF = Iter '\0' 1
+    | otherwise                = Iter '\0' 2
   where m = A.unsafeIndex arr j
         n = A.unsafeIndex arr k
         j = off + i
@@ -93,8 +98,8 @@ iter_ (Text arr off _len) i | m < 0xD800 || m > 0xDBFF = 1
 -- negative number) to give the next offset to iterate at.
 reverseIter :: Text -> Int -> (Char,Int)
 reverseIter (Text arr off _len) i
-    | m < 0xDC00 || m > 0xDFFF = (unsafeChr m, -1)
-    | otherwise                = (chr2 n m,    -2)
+    | m < 0xDC00 || m > 0xDFFF = ('\0', -1)
+    | otherwise                = ('\0', -2)
   where m = A.unsafeIndex arr j
         n = A.unsafeIndex arr k
         j = off + i

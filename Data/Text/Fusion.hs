@@ -51,7 +51,7 @@ import Prelude (Bool(..), Char, Maybe(..), Monad(..), Int,
                 fromIntegral, otherwise)
 import Data.Bits ((.&.))
 import Data.Text.Internal (Text(..))
-import Data.Text.UnsafeChar (ord, unsafeChr, unsafeWrite)
+import Data.Text.UnsafeChar (ord, unsafeChr8, unsafeWrite)
 import Data.Text.UnsafeShift (shiftL, shiftR)
 import qualified Data.Text.Array as A
 import qualified Data.Text.Fusion.Common as S
@@ -59,6 +59,7 @@ import Data.Text.Fusion.Internal
 import Data.Text.Fusion.Size
 import qualified Data.Text.Internal as I
 import qualified Data.Text.Encoding.Utf16 as U16
+import qualified Data.Text.Encoding.Utf8 as U8
 import qualified Prelude as P
 
 default(Int)
@@ -69,12 +70,16 @@ stream (Text arr off len) = Stream next off (maxSize len)
     where
       !end = off+len
       next !i
-          | i >= end                   = Done
-          | n >= 0xD800 && n <= 0xDBFF = Yield (U16.chr2 n n2) (i + 2)
-          | otherwise                  = Yield (unsafeChr n) (i + 1)
+          | i >= end  = Done
+          | n < 0x80  = Yield (unsafeChr8 n)       (i + 1)
+          | n < 0xC0  = Yield (U8.chr2 n n2)       (i + 2)
+          | n < 0xE0  = Yield (U8.chr3 n n2 n3)    (i + 3)
+          | otherwise = Yield (U8.chr4 n n2 n3 n4) (i + 4)
           where
             n  = A.unsafeIndex arr i
             n2 = A.unsafeIndex arr (i + 1)
+            n3 = A.unsafeIndex arr (i + 2)
+            n4 = A.unsafeIndex arr (i + 3)
 {-# INLINE [0] stream #-}
 
 -- | /O(n)/ Convert a 'Text' into a 'Stream Char', but iterate
@@ -85,11 +90,15 @@ reverseStream (Text arr off len) = Stream next (off+len-1) (maxSize len)
       {-# INLINE next #-}
       next !i
           | i < off                    = Done
-          | n >= 0xDC00 && n <= 0xDFFF = Yield (U16.chr2 n2 n) (i - 2)
-          | otherwise                  = Yield (unsafeChr n) (i - 1)
+          | n < 0x80  = Yield (unsafeChr8 n)       (i - 1)
+          | n < 0xC0  = Yield (U8.chr2 n n2)       (i - 2)
+          | n < 0xE0  = Yield (U8.chr3 n n2 n3)    (i - 3)
+          | otherwise = Yield (U8.chr4 n n2 n3 n4) (i - 4)
           where
             n  = A.unsafeIndex arr i
             n2 = A.unsafeIndex arr (i - 1)
+            n3 = A.unsafeIndex arr (i - 2)
+            n4 = A.unsafeIndex arr (i - 3)
 {-# INLINE [0] reverseStream #-}
 
 -- | /O(n)/ Convert a 'Stream Char' into a 'Text'.
