@@ -47,22 +47,18 @@ module Data.Text.Encoding
     ) where
 
 import Control.Exception (evaluate, try)
-import Data.Bits ((.&.))
 import Data.ByteString as B
 import Data.ByteString.Internal as B
 import Data.ByteString.Unsafe as B
 import Data.Text.Encoding.Error (OnDecodeError, UnicodeException, strictDecode)
 import Data.Text.Internal (Text(..), textP)
-import Data.Text.UnsafeChar (ord, unsafeWrite)
-import Data.Text.UnsafeShift (shiftL, shiftR)
-import Data.Word (Word8)
+import Data.Text.UnsafeChar (unsafeWrite)
 import Foreign.ForeignPtr (withForeignPtr)
 import Foreign.Ptr (plusPtr)
 import Foreign.Storable (poke)
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Data.Text.Array as A
 import qualified Data.Text.Encoding.Fusion as E
-import qualified Data.Text.Encoding.Utf16 as U16
 import qualified Data.Text.Encoding.Utf8 as U8
 import qualified Data.Text.Fusion as F
 
@@ -142,10 +138,19 @@ decodeUtf8' = unsafePerformIO . try . evaluate . decodeUtf8With strictDecode
 {-# INLINE decodeUtf8' #-}
 
 -- | Encode text using UTF-8 encoding.
--- TODO: Should be pretty doable
 encodeUtf8 :: Text -> ByteString
-encodeUtf8 (Text arr off len) = undefined
-{- INLINE encodeUtf8 #-}
+encodeUtf8 (Text arr off len) = unsafePerformIO $ do
+    fp <- mallocByteString len
+    withForeignPtr fp $ go 0
+    return $! PS fp 0 len
+  where
+    end = off + len
+    go !idx !ptr
+        | idx > end = return ()
+        | otherwise = do
+            poke ptr (A.unsafeIndex arr idx)
+            go (idx + 1) (ptr `plusPtr` 1)
+{-# INLINE encodeUtf8 #-}
 
 -- | Decode text from little endian UTF-16 encoding.
 decodeUtf16LEWith :: OnDecodeError -> ByteString -> Text
