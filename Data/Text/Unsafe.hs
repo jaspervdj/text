@@ -28,9 +28,8 @@ module Data.Text.Unsafe
 #if defined(ASSERTS)
 import Control.Exception (assert)
 #endif
-import Data.Text.Encoding.Utf16 (chr2)
+import Data.Text.Encoding.Utf8 (chrUtf8)
 import Data.Text.Internal (Text(..))
-import Data.Text.UnsafeChar (unsafeChr8)
 import GHC.ST (ST(..))
 import qualified Data.Text.Array as A
 #if defined(__GLASGOW_HASKELL__)
@@ -46,10 +45,7 @@ import GHC.Base (realWorld#)
 -- omits the check for the empty case, so there is an obligation on
 -- the programmer to provide a proof that the 'Text' is non-empty.
 unsafeHead :: Text -> Char
-unsafeHead (Text arr off _len)
-    -- TODO
-    | n1 < 0xD800 || n1 > 0xDBFF = unsafeChr8 n1
-    | otherwise                  = '\0'
+unsafeHead (Text arr off _len) = chrUtf8 (\c _ -> c) n1 n2 n3 n4
   where
     n1 = A.unsafeIndex arr off
     n2 = A.unsafeIndex arr (off + 1)
@@ -75,35 +71,38 @@ data Iter = Iter {-# UNPACK #-} !Char {-# UNPACK #-} !Int
 -- array, returning the current character and the delta to add to give
 -- the next offset to iterate at.
 iter :: Text -> Int -> Iter
-iter (Text arr off _len) i
-    -- TODO
-    | m < 0xD800 || m > 0xDBFF = Iter '\0' 1
-    | otherwise                = Iter '\0' 2
-  where m = A.unsafeIndex arr j
-        n = A.unsafeIndex arr k
-        j = off + i
-        k = j + 1
+iter (Text arr off _len) i = chrUtf8 (\c d -> Iter c d) n1 n2 n3 n4
+  where
+    j = off + i
+    n1 = A.unsafeIndex arr j
+    n2 = A.unsafeIndex arr (j + 1)
+    n3 = A.unsafeIndex arr (j + 2)
+    n4 = A.unsafeIndex arr (j + 3)
 {-# INLINE iter #-}
 
 -- | /O(1)/ Iterate one step through a UTF-16 array, returning the
 -- delta to add to give the next offset to iterate at.
 iter_ :: Text -> Int -> Int
-iter_ (Text arr off _len) i | m < 0xD800 || m > 0xDBFF = 1
-                            | otherwise                = 2
-  where m = A.unsafeIndex arr (off+i)
+iter_ (Text arr off _len) i
+    | m < 0xC0  = 1
+    | m < 0xE0  = 2
+    | m < 0xF0  = 3
+    | otherwise = 4
+  where
+    m = A.unsafeIndex arr (off+i)
 {-# INLINE iter_ #-}
 
 -- | /O(1)/ Iterate one step backwards through a UTF-16 array,
 -- returning the current character and the delta to add (i.e. a
 -- negative number) to give the next offset to iterate at.
 reverseIter :: Text -> Int -> (Char,Int)
-reverseIter (Text arr off _len) i
-    | m < 0xDC00 || m > 0xDFFF = ('\0', -1)
-    | otherwise                = ('\0', -2)
-  where m = A.unsafeIndex arr j
-        n = A.unsafeIndex arr k
-        j = off + i
-        k = j - 1
+reverseIter (Text arr off _len) i = chrUtf8 (,) n1 n2 n3 n4
+  where
+    n1 = A.unsafeIndex arr j
+    n2 = A.unsafeIndex arr (j + 1)
+    n3 = A.unsafeIndex arr (j + 2)
+    n4 = A.unsafeIndex arr (j + 3)
+    j = off + i
 {-# INLINE reverseIter #-}
 
 -- | Just like unsafePerformIO, but we inline it. Big performance gains as

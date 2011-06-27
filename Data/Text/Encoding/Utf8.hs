@@ -23,6 +23,7 @@ module Data.Text.Encoding.Utf8
     , chr2
     , chr3
     , chr4
+    , chrUtf8
     -- * Validation
     , validate1
     , validate2
@@ -120,7 +121,13 @@ chr4 (W8# x1#) (W8# x2#) (W8# x3#) (W8# x4#) =
 
 -- | Hybrid combination of 'unsafeChr8', 'chr2', 'chr3' and 'chr4'. This
 -- function will not touch the bytes it doesn't need.
--- TODO
+chrUtf8 :: (Char -> Int -> a) -> Word8 -> Word8 -> Word8 -> Word8 -> a
+chrUtf8 f n1 n2 n3 n4
+    | n1 < 0xC0 = f (unsafeChr8 n1)    1
+    | n1 < 0xE0 = f (chr2 n1 n2)       2
+    | n1 < 0xF0 = f (chr3 n1 n2 n3)    3
+    | otherwise = f (chr4 n1 n2 n3 n4) 4
+{-# INLINE [0] chrUtf8 #-}
 
 validate1 :: Word8 -> Bool
 validate1 x1 = x1 <= 0x7F
