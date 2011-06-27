@@ -71,10 +71,7 @@ stream (Text arr off len) = Stream next off (maxSize len)
       !end = off+len
       next !i
           | i >= end  = Done
-          | n1 < 0xC0 = Yield (unsafeChr8 n1)       (i + 1)
-          | n1 < 0xE0 = Yield (U8.chr2 n1 n2)       (i + 2)
-          | n1 < 0xF0 = Yield (U8.chr3 n1 n2 n3)    (i + 3)
-          | otherwise = Yield (U8.chr4 n1 n2 n3 n4) (i + 4)
+          | otherwise = U8.chrUtf8 (\c s -> Yield c (i + s)) n1 n2 n3 n4
         where
           n1 = A.unsafeIndex arr i
           n2 = A.unsafeIndex arr (i + 1)
@@ -90,10 +87,7 @@ reverseStream (Text arr off len) = Stream next (off+len-1) (maxSize len)
       {-# INLINE next #-}
       next !i
           | i < off   = Done
-          | n1 < 0xC0 = Yield (unsafeChr8 n1)       (i - 1)
-          | n1 < 0xE0 = Yield (U8.chr2 n1 n2)       (i - 2)
-          | n1 < 0xF0 = Yield (U8.chr3 n1 n2 n3)    (i - 3)
-          | otherwise = Yield (U8.chr4 n1 n2 n3 n4) (i - 4)
+          | otherwise = U8.chrUtf8 (\c s -> Yield c (i - s)) n1 n2 n3 n4
           where
             n1 = A.unsafeIndex arr i
             n2 = A.unsafeIndex arr (i - 1)
@@ -121,12 +115,7 @@ unstream (Stream next0 s0 len) = I.textP (P.fst a) 0 (P.snd a)
                                outer arr' top' s i
                 | otherwise -> do d <- unsafeWrite arr i x
                                   loop s' (i+d)
-                where 
-                      n = ord x
-                      j | n < 0x00080 = i
-                        | n < 0x00800 = i + 1
-                        | n < 0x10000 = i + 2
-                        | otherwise   = i + 3
+                where j = i + U8.charTailBytes x
 {-# INLINE [0] unstream #-}
 {-# RULES "STREAM stream/unstream fusion" forall s. stream (unstream s) = s #-}
 
