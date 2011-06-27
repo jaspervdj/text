@@ -19,6 +19,7 @@ module Data.Text.Encoding.Utf8
       ord2
     , ord3
     , ord4
+    , ordLength
     -- Construction
     , chr2
     , chr3
@@ -84,6 +85,17 @@ ord4 c =
       x2 = fromIntegral $ ((n `shiftR` 12) .&. 0x3F) + 0x80
       x3 = fromIntegral $ ((n `shiftR` 6) .&. 0x3F) + 0x80
       x4 = fromIntegral $ (n .&. 0x3F) + 0x80
+
+-- | Count the number of bytes needed to encode a character
+ordLength :: Char -> Int
+ordLength x
+    | n < 0x00080 = 1
+    | n < 0x00800 = 2
+    | n < 0x10000 = 3
+    | otherwise   = 4
+  where
+    n = ord x
+{-# INLINE [0] ordLength #-}
 
 chr2 :: Word8 -> Word8 -> Char
 chr2 (W8# x1#) (W8# x2#) = C# (chr# (z1# +# z2#))

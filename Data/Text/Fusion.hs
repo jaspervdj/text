@@ -121,8 +121,12 @@ unstream (Stream next0 s0 len) = I.textP (P.fst a) 0 (P.snd a)
                                outer arr' top' s i
                 | otherwise -> do d <- unsafeWrite arr i x
                                   loop s' (i+d)
-                where j | ord x < 0x10000 = i
-                        | otherwise       = i + 1
+                where 
+                      n = ord x
+                      j | n < 0x00080 = i
+                        | n < 0x00800 = i + 1
+                        | n < 0x10000 = i + 2
+                        | otherwise   = i + 3
 {-# INLINE [0] unstream #-}
 {-# RULES "STREAM stream/unstream fusion" forall s. stream (unstream s) = s #-}
 
