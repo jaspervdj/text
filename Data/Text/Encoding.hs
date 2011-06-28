@@ -82,38 +82,44 @@ decodeASCII bs = F.unstream (E.streamASCII bs)
 
 -- | Decode a 'ByteString' containing UTF-8 encoded text.
 decodeUtf8With :: OnDecodeError -> ByteString -> Text
-decodeUtf8With onErr bs = textP (fst a) 0 (snd a)
- where
-  a   = A.run2 (A.new len >>= outer 0 0)
-  len = B.length bs
-  outer n0 m0 arr = go n0 m0
-   where
-    go !n !m = do
-      let x1 = idx m
-          x2 = idx (m + 1)
-          x3 = idx (m + 2)
-          x4 = idx (m + 3)
-          idx = B.unsafeIndex bs
-      case undefined of
-       _| m >= len -> return (arr,n)
-        | U8.validate1 x1 -> do
-           A.unsafeWrite arr n (fromIntegral x1)
-           go (n+1) (m+1)
-        | m+1 < len && U8.validate2 x1 x2 -> do
-           w <- unsafeWrite arr n (U8.chr2 x1 x2)
-           go (n+w) (m+2)
-        | m+2 < len && U8.validate3 x1 x2 x3 -> do
-           w <- unsafeWrite arr n (U8.chr3 x1 x2 x3)
-           go (n+w) (m+3)
-        | m+3 < len && U8.validate4 x1 x2 x3 x4 -> do
-           w <- unsafeWrite arr n (U8.chr4 x1 x2 x3 x4)
-           go (n+w) (m+4)
-        | otherwise -> case onErr desc (Just x1) of
-                         Nothing -> go n (m+1)
-                         Just c -> do
-                           w <- unsafeWrite arr n c
-                           go (n+w) (m+1)
-  desc = "Data.Text.Encoding.decodeUtf8: Invalid UTF-8 stream"
+decodeUtf8With onErr bs = textP a 0 len
+  where
+    len = B.length bs
+    a   = A.run (A.new len >>= outer 0 0)
+    outer n0 m0 arr = go n0 m0
+      where
+        go !n !m
+            | m >= len = return arr
+            | U8.validate1 x1 = do
+                A.unsafeWrite arr n x1
+                go (n + 1) (m + 1)
+            | U8.validate2 x1 x2 = do
+                A.unsafeWrite arr n x1
+                A.unsafeWrite arr (n + 1) x2
+                go (n + 3) (m + 2)
+            | U8.validate3 x1 x2 x3 = do
+                A.unsafeWrite arr n x1
+                A.unsafeWrite arr (n + 1) x2
+                A.unsafeWrite arr (n + 2) x3
+                go (n + 3) (m + 3)
+            | U8.validate4 x1 x2 x3 x4 = do
+                A.unsafeWrite arr n x1
+                A.unsafeWrite arr (n + 1) x2
+                A.unsafeWrite arr (n + 2) x3
+                A.unsafeWrite arr (n + 3) x4
+                go (n + 4) (m + 4)
+            | otherwise = case onErr desc (Just x1) of
+                -- TODO: bounds checking!
+                Nothing -> go n (m + 1)
+                Just c -> do w <- unsafeWrite arr n c
+                             go (n + w) (m + 1)
+          where
+            x1 = idx m
+            x2 = idx (m + 1)
+            x3 = idx (m + 2)
+            x4 = idx (m + 3)
+            idx = B.unsafeIndex bs
+    desc = "Data.Text.Encoding.decodeUtf8: Invalid UTF-8 stream"
 {-# INLINE[0] decodeUtf8With #-}
 
 -- | Decode a 'ByteString' containing UTF-8 encoded text that is known
@@ -146,8 +152,8 @@ encodeUtf8 (Text arr off len) = unsafePerformIO $ do
   where
     end = off + len
     go !idx !ptr
-        | idx > end = return ()
-        | otherwise = do
+        | idx >= end = return ()
+        | otherwise  = do
             poke ptr (A.unsafeIndex arr idx)
             go (idx + 1) (ptr `plusPtr` 1)
 {-# INLINE encodeUtf8 #-}
