@@ -87,8 +87,8 @@ unsafeWrite marr i c
 #endif
         writeAt i       $ (n `shiftR` 18)            + 0xF0
         writeAt (i + 1) $ ((n `shiftR` 12) .&. 0x3F) + 0x80
-        writeAt (i + 1) $ ((n `shiftR` 6)  .&. 0x3F) + 0x80
-        writeAt (i + 2) $ (n .&. 0x3F)               + 0x80
+        writeAt (i + 2) $ ((n `shiftR` 6)  .&. 0x3F) + 0x80
+        writeAt (i + 3) $ (n .&. 0x3F)               + 0x80
         return 4
   where 
     n = ord c
