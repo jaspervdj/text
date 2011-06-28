@@ -212,7 +212,7 @@ run2 k = runST (do
 -- | The amount to divide or multiply by to switch between units of
 -- 'Word8' and units of 'Word'.
 wordFactor :: Int
-wordFactor = SIZEOF_HSWORD `shiftR` 1
+wordFactor = SIZEOF_HSWORD
 
 -- | Indicate whether an offset is word-aligned.
 wordAligned :: Int -> Bool
@@ -282,17 +282,20 @@ equal arrA offA arrB offB count
     | otherwise                            = slow 0
   where
     countWords = count `div` wordFactor
+    offAW = offA `div` wordFactor
+    offBW = offB `div` wordFactor
     fast !i
         | i >= countWords = slow (i * wordFactor)
         | a /= b          = False
-        | otherwise       = fast (i+1)
-        where a     = unsafeIndexWord arrA (offAW+i)
-              b     = unsafeIndexWord arrB (offBW+i)
-              offAW = offA `div` wordFactor
-              offBW = offB `div` wordFactor
+        | otherwise       = fast (i + 1)
+      where
+        a = unsafeIndexWord arrA (offAW + i)
+        b = unsafeIndexWord arrB (offBW + i)
+
     slow !i
         | i >= count = True
         | a /= b     = False
         | otherwise  = slow (i+1)
-        where a = unsafeIndex arrA (offA+i)
-              b = unsafeIndex arrB (offB+i)
+      where
+        a = unsafeIndex arrA (offA + i)
+        b = unsafeIndex arrB (offB + i)
