@@ -33,6 +33,7 @@ module Data.Text.Array
     , copyM
     , copyI
     , copyToPtr
+    , copyFromPtr
     , empty
     , equal
 #if defined(ASSERTS)
@@ -256,6 +257,21 @@ copyToPtr dest i0 src j0 top
                               (fromIntegral (top - i0))
 {-# INLINE copyToPtr #-}
 
+-- | Copy some elements from a pointer to an array
+copyFromPtr :: MArray s                -- ^ Destination
+            -> Int                     -- ^ Destination offset
+            -> Ptr Word8               -- ^ Source
+            -> Int                     -- ^ Source offset
+            -> Int                     -- ^ First offset in destination /not/ to
+                                       -- copy (i.e. /not/ length)
+            -> IO ()
+copyFromPtr dest i0 src j0 top
+    | i0 >= top = return ()
+    | otherwise = memcpyFromPtr (maBA dest) (fromIntegral i0)
+                                src (fromIntegral j0)
+                                (fromIntegral (top - i0))
+{-# INLINE copyFromPtr #-}
+
 -- | Compare portions of two arrays for equality.  No bounds checking
 -- is performed.
 equal :: Array                  -- ^ First
@@ -275,6 +291,9 @@ foreign import ccall unsafe "_hs_text_memcpy" memcpyI
 
 foreign import ccall unsafe "_hs_text_memcpy" memcpyToPtr
     :: Ptr Word8 -> CSize -> ByteArray# -> CSize -> CSize -> IO ()
+
+foreign import ccall unsafe "_hs_text_memcpy" memcpyFromPtr
+    :: MutableByteArray# s -> CSize -> Ptr Word8 -> CSize -> CSize -> IO ()
 
 foreign import ccall unsafe "_hs_text_memcmp" memcmp
     :: ByteArray# -> CSize -> ByteArray# -> CSize -> CSize -> IO CInt

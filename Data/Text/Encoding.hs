@@ -47,10 +47,12 @@ module Data.Text.Encoding
     ) where
 
 import Control.Exception (evaluate, try)
+import Control.Monad.ST (unsafeIOToST)
+import Data.Bits (shiftL)
 import Data.ByteString as B
 import Data.ByteString.Internal as B
 import Data.ByteString.Unsafe as B
-import Data.Text.Array (copyToPtr)
+import Data.Text.Array (copyToPtr, copyFromPtr)
 import Data.Text.Encoding.Error (OnDecodeError, UnicodeException, strictDecode)
 import Data.Text.Internal (Text(..), textP)
 import Data.Text.UnsafeChar (unsafeWrite)
@@ -62,6 +64,8 @@ import qualified Data.Text.Array as A
 import qualified Data.Text.Encoding.Fusion as E
 import qualified Data.Text.Encoding.Utf8 as U8
 import qualified Data.Text.Fusion as F
+
+import Debug.Trace
 
 -- $strict
 --
@@ -83,43 +87,87 @@ decodeASCII bs = F.unstream (E.streamASCII bs)
 
 -- | Decode a 'ByteString' containing UTF-8 encoded text.
 decodeUtf8With :: OnDecodeError -> ByteString -> Text
-decodeUtf8With onErr bs = textP a 0 len
+decodeUtf8With onErr bs = textP textA 0 textLen
   where
-    len = B.length bs
-    a   = A.run (A.new len >>= outer 0 0)
-    outer n0 m0 arr = go n0 m0
+    PS fptr off len = bs
+    
+    -- Position of the first character "after" the bytestring
+    end = off + len
+
+    (textA, textLen) = A.run2 $ do
+        a <- A.new len
+        go a len 0 off
+
+    -- Main decoding loop
+    --
+    -- * arr: the text array, and;
+    --
+    -- * arrLen: it's length;
+    --
+    -- * n: our current position in the text array;
+    --
+    -- * m: current position in the bytestring;
+    --
+    go arr arrLen n m
+        -- Reached the end: copy what we have
+        | m' >= end = do
+            copyTo arr
+            return (arr, n + copyLen)
+
+        -- Not at the end: decoding error
+        | otherwise   = case onErr desc (Just errByte) of
+            -- No replace character, so just copy and move on
+            Nothing -> do
+                copyTo arr
+                go arr arrLen (n + copyLen) (m' + 1)
+
+            -- Copy, copy replace character with optional resize and continue
+            Just c  -> do
+                -- The needed len
+                let needed = n + copyLen + U8.charTailBytes c + end - m' - 1
+                if needed < arrLen
+                    -- Long enough
+                    then do
+                        copyTo arr
+                        w <- unsafeWrite arr (n + copyLen) c
+                        go arr arrLen (n + copyLen + w) (m' + 1)
+
+                    -- Resize needed
+                    else do
+                        let arrLen' = arrLen `shiftL` 1
+                        arr' <- A.new arrLen'
+                        A.copyM arr' 0 arr 0 n
+                        copyTo arr'
+                        w <- unsafeWrite arr' (n + copyLen) c
+                        go arr' arrLen' (n + copyLen + w) (m' + 1)
       where
-        go !n !m
-            | m >= len = return arr
-            | U8.validate1 x1 = do
-                A.unsafeWrite arr n x1
-                go (n + 1) (m + 1)
-            | U8.validate2 x1 x2 = do
-                A.unsafeWrite arr n x1
-                A.unsafeWrite arr (n + 1) x2
-                go (n + 3) (m + 2)
-            | U8.validate3 x1 x2 x3 = do
-                A.unsafeWrite arr n x1
-                A.unsafeWrite arr (n + 1) x2
-                A.unsafeWrite arr (n + 2) x3
-                go (n + 3) (m + 3)
-            | U8.validate4 x1 x2 x3 x4 = do
-                A.unsafeWrite arr n x1
-                A.unsafeWrite arr (n + 1) x2
-                A.unsafeWrite arr (n + 2) x3
-                A.unsafeWrite arr (n + 3) x4
-                go (n + 4) (m + 4)
-            | otherwise = case onErr desc (Just x1) of
-                -- TODO: bounds checking!
-                Nothing -> go n (m + 1)
-                Just c -> do w <- unsafeWrite arr n c
-                             go (n + w) (m + 1)
-          where
-            x1 = idx m
-            x2 = idx (m + 1)
-            x3 = idx (m + 2)
-            x4 = idx (m + 3)
-            idx = B.unsafeIndex bs
+        -- Everything in the range [m, m'[ is valid
+        m' = validate m
+        errByte = B.unsafeIndex bs m'
+
+        -- Length of the valid piece
+        copyLen = m' - m
+
+        -- Copy everything in the [m, m'[ range to some array
+        copyTo a = unsafeIOToST $ withForeignPtr fptr $ \ptr ->
+            copyFromPtr a n ptr m (n + copyLen)
+
+    -- A validate loop through the bytestring. Returns the first position at
+    -- which an invalid byte is found
+    validate !i
+        | i >= end                 = end
+        | U8.validate1 x1          = validate (i + 1)
+        | U8.validate2 x1 x2       = validate (i + 2)
+        | U8.validate3 x1 x2 x3    = validate (i + 3)
+        | U8.validate4 x1 x2 x3 x4 = validate (i + 4)
+        | otherwise                = i
+      where
+        x1 = idx i
+        x2 = idx (i + 1)
+        x3 = idx (i + 2)
+        x4 = idx (i + 3)
+        idx = B.unsafeIndex bs
+    
     desc = "Data.Text.Encoding.decodeUtf8: Invalid UTF-8 stream"
 {-# INLINE[0] decodeUtf8With #-}
 
