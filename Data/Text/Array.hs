@@ -32,6 +32,7 @@ module Data.Text.Array
     -- * Functions
     , copyM
     , copyI
+    , copyToPtr
     , empty
     , equal
 #if defined(ASSERTS)
@@ -64,6 +65,7 @@ import Control.Monad.ST (unsafeIOToST)
 import Data.Bits ((.&.), xor)
 import Data.Text.Unsafe.Base (inlinePerformIO)
 import Data.Text.UnsafeShift (shiftL, shiftR)
+import Foreign.Ptr (Ptr)
 import Foreign.C.Types (CInt, CSize)
 import GHC.Base (ByteArray#, MutableByteArray#, Int(..),
                  indexWord8Array#, indexWordArray#, newByteArray#,
@@ -239,6 +241,21 @@ copyI dest i0 src j0 top
                           (fromIntegral (top-i0))
 {-# INLINE copyI #-}
 
+-- | Copy some elements of an immutable array to a pointer
+copyToPtr :: Ptr Word8               -- ^ Destination
+          -> Int                     -- ^ Destination offset
+          -> Array                   -- ^ Source
+          -> Int                     -- ^ Source offset
+          -> Int                     -- ^ First offset in destination /not/ to
+                                     -- copy (i.e. /not/ length)
+          -> IO ()
+copyToPtr dest i0 src j0 top
+    | i0 >= top = return ()
+    | otherwise = memcpyToPtr dest (fromIntegral i0)
+                              (aBA src) (fromIntegral j0)
+                              (fromIntegral (top - i0))
+{-# INLINE copyToPtr #-}
+
 -- | Compare portions of two arrays for equality.  No bounds checking
 -- is performed.
 equal :: Array                  -- ^ First
@@ -255,6 +272,9 @@ equal arrA offA arrB offB count = inlinePerformIO $ do
 
 foreign import ccall unsafe "_hs_text_memcpy" memcpyI
     :: MutableByteArray# s -> CSize -> ByteArray# -> CSize -> CSize -> IO ()
+
+foreign import ccall unsafe "_hs_text_memcpy" memcpyToPtr
+    :: Ptr Word8 -> CSize -> ByteArray# -> CSize -> CSize -> IO ()
 
 foreign import ccall unsafe "_hs_text_memcmp" memcmp
     :: ByteArray# -> CSize -> ByteArray# -> CSize -> CSize -> IO CInt

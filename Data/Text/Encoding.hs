@@ -50,6 +50,7 @@ import Control.Exception (evaluate, try)
 import Data.ByteString as B
 import Data.ByteString.Internal as B
 import Data.ByteString.Unsafe as B
+import Data.Text.Array (copyToPtr)
 import Data.Text.Encoding.Error (OnDecodeError, UnicodeException, strictDecode)
 import Data.Text.Internal (Text(..), textP)
 import Data.Text.UnsafeChar (unsafeWrite)
@@ -147,15 +148,8 @@ decodeUtf8' = unsafePerformIO . try . evaluate . decodeUtf8With strictDecode
 encodeUtf8 :: Text -> ByteString
 encodeUtf8 (Text arr off len) = unsafePerformIO $ do
     fp <- mallocByteString len
-    withForeignPtr fp $ go 0
+    withForeignPtr fp $ \ptr -> copyToPtr ptr 0 arr off (off + len)
     return $! PS fp 0 len
-  where
-    end = off + len
-    go !idx !ptr
-        | idx >= end = return ()
-        | otherwise  = do
-            poke ptr (A.unsafeIndex arr idx)
-            go (idx + 1) (ptr `plusPtr` 1)
 {-# INLINE encodeUtf8 #-}
 
 -- | Decode text from little endian UTF-16 encoding.
