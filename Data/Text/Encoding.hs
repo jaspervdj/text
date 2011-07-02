@@ -142,7 +142,7 @@ decodeUtf8With onErr bs = textP textA 0 textLen
                         go arr' arrLen' (n + copyLen + w) (m' + 1)
       where
         -- Everything in the range [m, m'[ is valid
-        m' = validate m
+        m' = U8.validateBS bs m
         errByte = B.unsafeIndex bs m'
 
         -- Length of the valid piece

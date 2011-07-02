@@ -65,7 +65,9 @@ flag developer
   default: False
 
 library
-  c-sources: cbits/cbits.c
+  c-sources:
+    cbits/cbits.c
+    cbits/utf8_validate.c
 
   exposed-modules:
     Data.Text

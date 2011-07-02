@@ -1,4 +1,4 @@
-{-# LANGUAGE CPP, MagicHash, BangPatterns #-}
+{-# LANGUAGE CPP, MagicHash, BangPatterns, ForeignFunctionInterface #-}
 
 -- |
 -- Module      : Data.Text.Encoding.Utf8
@@ -30,16 +30,22 @@ module Data.Text.Encoding.Utf8
     , validate2
     , validate3
     , validate4
+    , validateBS
     ) where
 
 #if defined(ASSERTS)
 import Control.Exception (assert)
 #endif
 import Data.Bits ((.&.))
+import Data.ByteString.Internal (ByteString (..))
 import Data.Text.UnsafeChar (ord, unsafeChr8)
 import Data.Text.UnsafeShift (shiftR)
+import Foreign.C (CInt)
+import Foreign.Ptr ()
+import Foreign (Ptr, withForeignPtr)
 import GHC.Exts
 import GHC.Word (Word8(..))
+import System.IO.Unsafe (unsafePerformIO)
 
 default(Int)
 
@@ -182,3 +188,11 @@ validate4 x1 x2 x3 x4 = validate4_1 || validate4_2 || validate4_3
                   between x2 0x80 0x8F &&
                   between x3 0x80 0xBF &&
                   between x4 0x80 0xBF
+
+validateBS :: ByteString -> Int -> Int
+validateBS (PS fptr s l) o = unsafePerformIO $ withForeignPtr fptr $ \ptr -> do
+    e <- hs_utf8_validate ptr (fromIntegral (s + o)) (fromIntegral l)
+    return (fromIntegral e)
+
+foreign import ccall unsafe "_hs_utf8_validate" hs_utf8_validate
+    :: Ptr Word8 -> CInt -> CInt -> IO CInt

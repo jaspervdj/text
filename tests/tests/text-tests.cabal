@@ -65,7 +65,9 @@ executable text-tests-stdio
 
 library
   hs-source-dirs: ../..
-  c-sources: ../../cbits/cbits.c
+  c-sources:
+    ../../cbits/cbits.c
+    ../../cbits/utf8_validate.c
   exposed-modules:
     Data.Text
     Data.Text.Array
