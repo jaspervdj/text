@@ -57,15 +57,11 @@ import Data.Text.Encoding.Error (OnDecodeError, UnicodeException, strictDecode)
 import Data.Text.Internal (Text(..), textP)
 import Data.Text.UnsafeChar (unsafeWrite)
 import Foreign.ForeignPtr (withForeignPtr)
-import Foreign.Ptr (plusPtr)
-import Foreign.Storable (poke)
 import System.IO.Unsafe (unsafePerformIO)
 import qualified Data.Text.Array as A
 import qualified Data.Text.Encoding.Fusion as E
 import qualified Data.Text.Encoding.Utf8 as U8
 import qualified Data.Text.Fusion as F
-
-import Debug.Trace
 
 -- $strict
 --
@@ -115,14 +111,14 @@ decodeUtf8With onErr bs = textP textA 0 textLen
             return (arr, n + copyLen)
 
         -- Not at the end: decoding error
-        | otherwise   = case onErr desc (Just errByte) of
+        | otherwise = case onErr desc (Just errByte) of
             -- No replace character, so just copy and move on
             Nothing -> do
                 copyTo arr
                 go arr arrLen (n + copyLen) (m' + 1)
 
             -- Copy, copy replace character with optional resize and continue
-            Just c  -> do
+            Just c -> do
                 -- The needed len
                 let needed = n + copyLen + U8.charTailBytes c + end - m' - 1
                 if needed < arrLen
@@ -142,7 +138,7 @@ decodeUtf8With onErr bs = textP textA 0 textLen
                         go arr' arrLen' (n + copyLen + w) (m' + 1)
       where
         -- Everything in the range [m, m'[ is valid
-        m' = U8.validateBS bs m
+        m' = U8.validateBS bs (m - off) + off
         errByte = B.unsafeIndex bs m'
 
         -- Length of the valid piece
@@ -151,22 +147,6 @@ decodeUtf8With onErr bs = textP textA 0 textLen
         -- Copy everything in the [m, m'[ range to some array
         copyTo a = unsafeIOToST $ withForeignPtr fptr $ \ptr ->
             copyFromPtr a n ptr m (n + copyLen)
-
-    -- A validate loop through the bytestring. Returns the first position at
-    -- which an invalid byte is found
-    validate !i
-        | i >= end                 = end
-        | U8.validate1 x1          = validate (i + 1)
-        | U8.validate2 x1 x2       = validate (i + 2)
-        | U8.validate3 x1 x2 x3    = validate (i + 3)
-        | U8.validate4 x1 x2 x3 x4 = validate (i + 4)
-        | otherwise                = i
-      where
-        x1 = idx i
-        x2 = idx (i + 1)
-        x3 = idx (i + 2)
-        x4 = idx (i + 3)
-        idx = B.unsafeIndex bs
     
     desc = "Data.Text.Encoding.decodeUtf8: Invalid UTF-8 stream"
 {-# INLINE[0] decodeUtf8With #-}

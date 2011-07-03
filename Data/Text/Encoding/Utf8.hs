@@ -40,6 +40,7 @@ import Data.Bits ((.&.))
 import Data.ByteString.Internal (ByteString (..))
 import Data.Text.UnsafeChar (ord, unsafeChr8)
 import Data.Text.UnsafeShift (shiftR)
+import Data.Text.Unsafe.Base (inlinePerformIO)
 import Foreign.C (CInt)
 import Foreign.Ptr ()
 import Foreign (Ptr, withForeignPtr)
@@ -189,10 +190,15 @@ validate4 x1 x2 x3 x4 = validate4_1 || validate4_2 || validate4_3
                   between x3 0x80 0xBF &&
                   between x4 0x80 0xBF
 
-validateBS :: ByteString -> Int -> Int
-validateBS (PS fptr _ l) o = unsafePerformIO $ withForeignPtr fptr $ \ptr -> do
-    e <- hs_utf8_validate ptr (fromIntegral o) (fromIntegral l)
-    return (fromIntegral e)
+-- | This is a fast method to validate an entire 'ByteString'. It starts
+-- scanning from a specified offset and returns if an invalid byte is found.
+validateBS :: ByteString  -- ^ Bytestring to check
+           -> Int         -- ^ Offset to start checking
+           -> Int         -- ^ Index of the first invalid byte
+validateBS (PS ps s l) o = inlinePerformIO $ withForeignPtr ps $ \ptr -> do
+    e <- hs_utf8_validate ptr (fromIntegral (s + o)) (fromIntegral (l - o))
+    return $ (fromIntegral e) + o
+{-# INLINE validateBS #-}
 
 foreign import ccall unsafe "_hs_utf8_validate" hs_utf8_validate
     :: Ptr Word8 -> CInt -> CInt -> IO CInt
