@@ -5,20 +5,15 @@
 
 typedef unsigned char uchar;
 
-/* Static global variable holding the ascii mask */
-long ascii_mask = 0;
-
-/* Mask size in bytes */
-long ascii_mask_length = sizeof(long);
-
 /* Initialize bit mask to have fast matching of ASCII characters */
-void make_ascii_mask(void) {
-  if(!ascii_mask) {
-    int i;
-    for(i = 0; i < ascii_mask_length; i++) {
-      ascii_mask = (ascii_mask << 8) | 0x80;
-    }
+long make_ascii_mask(void) {
+  int i;
+  long mask = 0;
+  for(i = 0; i < sizeof(long); i++) {
+    mask = (mask << 8) | 0x80;
   }
+
+  return mask;
 }
 
 /* Validate an UTF-8 encoded string.
@@ -30,32 +25,28 @@ void make_ascii_mask(void) {
  * Return value: the index of the first invalid byte in the string
  */
 int _hs_utf8_validate(uchar *str, int offset, int length) {
-  /*
-  int i;
-  for(i = offset; i < length; i++) printf("%u ", str[i]);
-  printf("\n");
-  */
-
   uchar *p = str + offset;
 
-  uchar *end1 = p + length;
-  uchar *end2 = end1 - 1;
-  uchar *end3 = end2 - 1;
-  uchar *end4 = end3 - 1;
+  const uchar *end1 = p + length;
+  const uchar *end2 = end1 - 1;
+  const uchar *end3 = end2 - 1;
+  const uchar *end4 = end3 - 1;
 
   /* Assign ascii mask if we haven't done so yet */
-  make_ascii_mask();
-  uchar *end_ascii_mask = end1 - ascii_mask_length;
+  const long ascii_mask = make_ascii_mask();
+  const uchar *end_ascii_mask = end1 - sizeof(long);
 
+  /* Fast ascii loop */
+  while(p < end_ascii_mask && (*((const long *) p) & ascii_mask) == 0) {
+    p += sizeof(long);
+  }
+
+  /* Slow, careful loop */
   while(p < end1) {
     uchar n1 = *p;
 
-    /* Ascii mask */
-    if(p < end_ascii_mask && (*((long *) p) & ascii_mask) == 0) {
-      p += ascii_mask_length;
-
     /* One-byte character */
-    } if(n1 <= 0x7F) {
+    if(n1 <= 0x7F) {
       p++;
 
     /* Two-byte character */
