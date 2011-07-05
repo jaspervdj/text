@@ -148,47 +148,48 @@ chrUtf8 f n1 n2 n3 n4
     | otherwise = f (chr4 n1 n2 n3 n4) 4
 {-# INLINE [0] chrUtf8 #-}
 
+-- | Utility function: check if a word is an UTF-8 continuation byte
+continuationByte :: Word8 -> Bool
+continuationByte x = x .&. 0xC0 == 0x80
+{-# INLINE [0] continuationByte #-}
+
 validate1 :: Word8 -> Bool
 validate1 x1 = x1 <= 0x7F
 {-# INLINE validate1 #-}
 
 validate2 :: Word8 -> Word8 -> Bool
-validate2 x1 x2 = between x1 0xC2 0xDF && between x2 0x80 0xBF
+validate2 x1 x2 = between x1 0xC2 0xDF && continuationByte x2
 {-# INLINE validate2 #-}
 
 validate3 :: Word8 -> Word8 -> Word8 -> Bool
+validate3 x1 x2 x3
+    | x1 < 0xED =
+        if x1 == 0xE0 then between x2 0xA0 0xBF &&
+                           continuationByte x3
+                      else x1 >= 0xE1 &&
+                           continuationByte x2 &&
+                           continuationByte x3
+    | otherwise =
+        if x1 == 0xED then between x2 0x80 0x9F &&
+                           continuationByte x3
+                      else x1 <= 0xEF &&
+                           continuationByte x2 &&
+                           continuationByte x3
 {-# INLINE validate3 #-}
-validate3 x1 x2 x3 = validate3_1 || validate3_2 || validate3_3 || validate3_4
-  where
-    validate3_1 = (x1 == 0xE0) &&
-                  between x2 0xA0 0xBF &&
-                  between x3 0x80 0xBF
-    validate3_2 = between x1 0xE1 0xEC &&
-                  between x2 0x80 0xBF &&
-                  between x3 0x80 0xBF
-    validate3_3 = x1 == 0xED &&
-                  between x2 0x80 0x9F &&
-                  between x3 0x80 0xBF
-    validate3_4 = between x1 0xEE 0xEF &&
-                  between x2 0x80 0xBF &&
-                  between x3 0x80 0xBF
 
 validate4 :: Word8 -> Word8 -> Word8 -> Word8 -> Bool
+validate4 x1 x2 x3 x4
+    | x1 == 0xF0           = between x2 0x90 0xBF &&
+                             continuationByte x3 &&
+                             continuationByte x4
+    | between x1 0xF1 0xF3 = continuationByte x2 &&
+                             continuationByte x3 &&
+                             continuationByte x4
+    | x1 == 0xF4           = between x2 0x80 0x8F &&
+                             continuationByte x3 &&
+                             continuationByte x4
+    | otherwise            = False
 {-# INLINE validate4 #-}
-validate4 x1 x2 x3 x4 = validate4_1 || validate4_2 || validate4_3
-  where 
-    validate4_1 = x1 == 0xF0 &&
-                  between x2 0x90 0xBF &&
-                  between x3 0x80 0xBF &&
-                  between x4 0x80 0xBF
-    validate4_2 = between x1 0xF1 0xF3 &&
-                  between x2 0x80 0xBF &&
-                  between x3 0x80 0xBF &&
-                  between x4 0x80 0xBF
-    validate4_3 = x1 == 0xF4 &&
-                  between x2 0x80 0x8F &&
-                  between x3 0x80 0xBF &&
-                  between x4 0x80 0xBF
 
 -- | This is a fast method to validate an entire 'ByteString'. It starts
 -- scanning from a specified offset and returns if an invalid byte is found.
