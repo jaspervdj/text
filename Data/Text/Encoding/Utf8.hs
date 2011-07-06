@@ -24,13 +24,14 @@ module Data.Text.Encoding.Utf8
     , chr2
     , chr3
     , chr4
-    , chrUtf8
     -- * Validation
     , validate1
     , validate2
     , validate3
     , validate4
     , validateBS
+    -- * Encoding and decoding of characters
+    , decodeChar
     ) where
 
 #if defined(ASSERTS)
@@ -43,10 +44,9 @@ import Data.Text.UnsafeShift (shiftR)
 import Data.Text.Unsafe.Base (inlinePerformIO)
 import Foreign.C (CInt)
 import Foreign.Ptr ()
-import Foreign (Ptr, withForeignPtr)
+import Foreign (withForeignPtr)
 import GHC.Exts
 import GHC.Word (Word8(..))
-import System.IO.Unsafe (unsafePerformIO)
 
 default(Int)
 
@@ -138,16 +138,6 @@ chr4 (W8# x1#) (W8# x2#) (W8# x3#) (W8# x4#) =
       !z4# = y4# -# 0x80#
 {-# INLINE chr4 #-}
 
--- | Hybrid combination of 'unsafeChr8', 'chr2', 'chr3' and 'chr4'. This
--- function will not touch the bytes it doesn't need.
-chrUtf8 :: (Char -> Int -> a) -> Word8 -> Word8 -> Word8 -> Word8 -> a
-chrUtf8 f n1 n2 n3 n4
-    | n1 < 0xC0 = f (unsafeChr8 n1)    1
-    | n1 < 0xE0 = f (chr2 n1 n2)       2
-    | n1 < 0xF0 = f (chr3 n1 n2 n3)    3
-    | otherwise = f (chr4 n1 n2 n3 n4) 4
-{-# INLINE [0] chrUtf8 #-}
-
 -- | Utility function: check if a word is an UTF-8 continuation byte
 continuationByte :: Word8 -> Bool
 continuationByte x = x .&. 0xC0 == 0x80
@@ -203,3 +193,13 @@ validateBS (PS ps s l) o = inlinePerformIO $ withForeignPtr ps $ \ptr -> do
 
 foreign import ccall unsafe "_hs_utf8_validate" hs_utf8_validate
     :: Ptr Word8 -> CInt -> CInt -> IO CInt
+
+-- | Hybrid combination of 'unsafeChr8', 'chr2', 'chr3' and 'chr4'. This
+-- function will not touch the bytes it doesn't need.
+decodeChar :: (Char -> Int -> a) -> Word8 -> Word8 -> Word8 -> Word8 -> a
+decodeChar f n1 n2 n3 n4
+    | n1 < 0xC0 = f (unsafeChr8 n1)    1
+    | n1 < 0xE0 = f (chr2 n1 n2)       2
+    | n1 < 0xF0 = f (chr3 n1 n2 n3)    3
+    | otherwise = f (chr4 n1 n2 n3 n4) 4
+{-# INLINE [0] decodeChar #-}

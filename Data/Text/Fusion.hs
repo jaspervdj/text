@@ -51,14 +51,13 @@ import Prelude (Bool(..), Char, Maybe(..), Monad(..), Int,
                 fromIntegral, otherwise)
 import Data.Bits ((.&.))
 import Data.Text.Internal (Text(..))
-import Data.Text.UnsafeChar (ord, unsafeChr8, unsafeWrite)
+import Data.Text.UnsafeChar (ord, unsafeWrite)
 import Data.Text.UnsafeShift (shiftL, shiftR)
 import qualified Data.Text.Array as A
 import qualified Data.Text.Fusion.Common as S
 import Data.Text.Fusion.Internal
 import Data.Text.Fusion.Size
 import qualified Data.Text.Internal as I
-import qualified Data.Text.Encoding.Utf16 as U16
 import qualified Data.Text.Encoding.Utf8 as U8
 import qualified Prelude as P
 
@@ -71,7 +70,7 @@ stream (Text arr off len) = Stream next off (maxSize len)
       !end = off+len
       next !i
           | i >= end  = Done
-          | otherwise = U8.chrUtf8 (\c s -> Yield c (i + s)) n1 n2 n3 n4
+          | otherwise = U8.decodeChar (\c s -> Yield c (i + s)) n1 n2 n3 n4
         where
           n1 = A.unsafeIndex arr i
           n2 = A.unsafeIndex arr (i + 1)
@@ -87,7 +86,7 @@ reverseStream (Text arr off len) = Stream next (off+len-1) (maxSize len)
       {-# INLINE next #-}
       next !i
           | i < off   = Done
-          | otherwise = U8.chrUtf8 (\c s -> Yield c (i - s)) n1 n2 n3 n4
+          | otherwise = U8.decodeChar (\c s -> Yield c (i - s)) n1 n2 n3 n4
           where
             n1 = A.unsafeIndex arr i
             n2 = A.unsafeIndex arr (i - 1)

@@ -28,7 +28,7 @@ module Data.Text.Unsafe
 #if defined(ASSERTS)
 import Control.Exception (assert)
 #endif
-import Data.Text.Encoding.Utf8 (chrUtf8)
+import Data.Text.Encoding.Utf8 (decodeChar)
 import Data.Text.Internal (Text(..))
 import GHC.ST (ST(..))
 import Data.Text.Unsafe.Base (inlineInterleaveST, inlinePerformIO)
@@ -38,7 +38,7 @@ import qualified Data.Text.Array as A
 -- omits the check for the empty case, so there is an obligation on
 -- the programmer to provide a proof that the 'Text' is non-empty.
 unsafeHead :: Text -> Char
-unsafeHead (Text arr off _len) = chrUtf8 (\c _ -> c) n1 n2 n3 n4
+unsafeHead (Text arr off _len) = decodeChar (\c _ -> c) n1 n2 n3 n4
   where
     n1 = A.unsafeIndex arr off
     n2 = A.unsafeIndex arr (off + 1)
@@ -64,7 +64,7 @@ data Iter = Iter {-# UNPACK #-} !Char {-# UNPACK #-} !Int
 -- array, returning the current character and the delta to add to give
 -- the next offset to iterate at.
 iter :: Text -> Int -> Iter
-iter (Text arr off _len) i = chrUtf8 (\c d -> Iter c d) n1 n2 n3 n4
+iter (Text arr off _len) i = decodeChar (\c d -> Iter c d) n1 n2 n3 n4
   where
     j = off + i
     n1 = A.unsafeIndex arr j
@@ -89,7 +89,7 @@ iter_ (Text arr off _len) i
 -- returning the current character and the delta to add (i.e. a
 -- negative number) to give the next offset to iterate at.
 reverseIter :: Text -> Int -> (Char,Int)
-reverseIter (Text arr off _len) i = chrUtf8 (,) n1 n2 n3 n4
+reverseIter (Text arr off _len) i = decodeChar (,) n1 n2 n3 n4
   where
     n1 = A.unsafeIndex arr j
     n2 = A.unsafeIndex arr (j + 1)
