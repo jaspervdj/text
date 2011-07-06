@@ -32,6 +32,7 @@ module Data.Text.Encoding.Utf8
     , validateBS
     -- * Encoding and decoding of characters
     , decodeChar
+    , encodeChar
     ) where
 
 #if defined(ASSERTS)
@@ -203,3 +204,31 @@ decodeChar f n1 n2 n3 n4
     | n1 < 0xF0 = f (chr3 n1 n2 n3)    3
     | otherwise = f (chr4 n1 n2 n3 n4) 4
 {-# INLINE [0] decodeChar #-}
+
+-- | This function provides fast UTF-8 encoding of characters because the user
+-- can supply custom functions for the different code paths, which should be
+-- inlined properly.
+encodeChar :: (Word8 -> a)
+           -> (Word8 -> Word8 -> a)
+           -> (Word8 -> Word8 -> Word8 -> a)
+           -> (Word8 -> Word8 -> Word8 -> Word8 -> a)
+           -> Char
+           -> a
+encodeChar f1 f2 f3 f4 c
+    -- One-byte character
+    | n < 0x80    = f1 (fromIntegral n)
+    -- Two-byte character
+    | n < 0x0800  = f2 (fromIntegral $ (n `shiftR` 6) + 0xC0)
+                       (fromIntegral $ (n .&. 0x3F)   + 0x80)
+    -- Three-byte character
+    | n < 0x10000 = f3 (fromIntegral $ (n `shiftR` 12)           + 0xE0)
+                       (fromIntegral $ ((n `shiftR` 6) .&. 0x3F) + 0x80)
+                       (fromIntegral $ (n .&. 0x3F)              + 0x80)
+    -- Four-byte character
+    | otherwise   = f4 (fromIntegral $ (n `shiftR` 18)            + 0xF0)
+                       (fromIntegral $ ((n `shiftR` 12) .&. 0x3F) + 0x80)
+                       (fromIntegral $ ((n `shiftR` 6)  .&. 0x3F) + 0x80)
+                       (fromIntegral $ (n .&. 0x3F)               + 0x80)
+  where 
+    n = ord c
+{-# INLINE [0] encodeChar #-}
