@@ -211,7 +211,7 @@ import Data.Text.Fusion (stream, reverseStream, unstream)
 import Data.Text.Internal (Text(..), empty, firstf, safe, text, textP)
 import qualified Prelude as P
 import Data.Text.Unsafe (Iter(..), iter, iter_, lengthWord8, reverseIter,
-                         unsafeHead, unsafeTail)
+                         unsafeHead, unsafeTail, dropWord8)
 import Data.Text.UnsafeChar (unsafeChr8)
 import qualified Data.Text.Util as U
 import qualified Data.Text.Encoding.Utf16 as U16
@@ -346,7 +346,20 @@ instance Data Text where
 -- | /O(n)/ Compare two 'Text' values lexicographically.
 compareText :: Text -> Text -> Ordering
 compareText ta@(Text _arrA _offA lenA) tb@(Text _arrB _offB lenB)
+    -- Both are empty, so they are equal
     | lenA == 0 && lenB == 0 = EQ
+    -- No difference found in the common length
+    | i >= len               = compare lenA lenB
+    -- Drop the bytes without difference and compare the heads
+    | otherwise              = compare ha hb
+  where
+    len = min lenA lenB
+    i = A.diff _arrA _offA _arrB _offB len
+    ha = unsafeHead $ dropWord8 i ta
+    hb = unsafeHead $ dropWord8 i tb
+
+
+  {-
     | otherwise              = go 0 0
   where
     go !i !j
@@ -356,6 +369,7 @@ compareText ta@(Text _arrA _offA lenA) tb@(Text _arrB _offB lenB)
         | otherwise              = go (i+di) (j+dj)
       where Iter a di = iter ta i
             Iter b dj = iter tb j
+  -}
 
 -- -----------------------------------------------------------------------------
 -- * Conversion to/from 'Text'

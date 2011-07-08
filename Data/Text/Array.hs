@@ -36,6 +36,7 @@ module Data.Text.Array
     , copyFromPtr
     , empty
     , equal
+    , diff
 #if defined(ASSERTS)
     , length
 #endif
@@ -286,6 +287,20 @@ equal arrA offA arrB offB count = inlinePerformIO $ do
   return $! i == 0
 {-# INLINE equal #-}
 
+-- | Compare portions of two arrays and return the offset in the first array
+-- where a difference is found.
+diff :: Array                  -- ^ First
+     -> Int                    -- ^ Offset into first
+     -> Array                  -- ^ Second
+     -> Int                    -- ^ Offset into second
+     -> Int                    -- ^ Count
+     -> Int                    -- ^ Offset of first difference
+diff arrA offA arrB offB count = inlinePerformIO $ do
+  i <- c_diff (aBA arrA) (fromIntegral offA)
+              (aBA arrB) (fromIntegral offB) (fromIntegral count)
+  return $! fromIntegral i
+
+{-# INLINE diff #-}
 foreign import ccall unsafe "_hs_text_memcpy" memcpyI
     :: MutableByteArray# s -> CSize -> ByteArray# -> CSize -> CSize -> IO ()
 
@@ -301,3 +316,6 @@ foreign import ccall unsafe "_hs_text_memcmp" memcmp
 foreign import ccall unsafe "_hs_text_memcpy" memcpyM
     :: MutableByteArray# s -> CSize -> MutableByteArray# s -> CSize -> CSize
     -> IO ()
+
+foreign import ccall unsafe "_hs_text_diff" c_diff
+    :: ByteArray# -> CSize -> ByteArray# -> CSize -> CSize -> IO CSize
