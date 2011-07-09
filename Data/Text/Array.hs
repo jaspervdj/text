@@ -299,8 +299,8 @@ diff arrA offA arrB offB count = inlinePerformIO $ do
   i <- c_diff (aBA arrA) (fromIntegral offA)
               (aBA arrB) (fromIntegral offB) (fromIntegral count)
   return $! fromIntegral i
-
 {-# INLINE diff #-}
+
 foreign import ccall unsafe "_hs_text_memcpy" memcpyI
     :: MutableByteArray# s -> CSize -> ByteArray# -> CSize -> CSize -> IO ()
 

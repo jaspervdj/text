@@ -302,6 +302,7 @@ instance Eq Text where
 
 instance Ord Text where
     compare = compareText
+    {-# INLINE compare #-}
 
 instance Show Text where
     showsPrec p ps r = showsPrec p (unpack ps) r
@@ -346,30 +347,16 @@ instance Data Text where
 -- | /O(n)/ Compare two 'Text' values lexicographically.
 compareText :: Text -> Text -> Ordering
 compareText ta@(Text _arrA _offA lenA) tb@(Text _arrB _offB lenB)
-    -- Both are empty, so they are equal
-    | lenA == 0 && lenB == 0 = EQ
     -- No difference found in the common length
-    | i >= len               = compare lenA lenB
+    | i >= len  = compare lenA lenB
     -- Drop the bytes without difference and compare the heads
-    | otherwise              = compare ha hb
+    | otherwise = compare ha hb
   where
     len = min lenA lenB
     i = A.diff _arrA _offA _arrB _offB len
     ha = unsafeHead $ dropWord8 i ta
     hb = unsafeHead $ dropWord8 i tb
-
-
-  {-
-    | otherwise              = go 0 0
-  where
-    go !i !j
-        | i >= lenA || j >= lenB = compare lenA lenB
-        | a < b                  = LT
-        | a > b                  = GT
-        | otherwise              = go (i+di) (j+dj)
-      where Iter a di = iter ta i
-            Iter b dj = iter tb j
-  -}
+{-# INLINE compareText #-}
 
 -- -----------------------------------------------------------------------------
 -- * Conversion to/from 'Text'
