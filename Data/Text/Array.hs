@@ -83,7 +83,7 @@ data Array = Array {
       aBA :: ByteArray#
 #if defined(ASSERTS)
       -- TODO: We won't need this anymore
-    , aLen :: {-# UNPACK #-} !Int -- length (in units of Word16, not bytes)
+    , aLen :: {-# UNPACK #-} !Int -- length
 #endif
     }
 
@@ -92,7 +92,7 @@ data MArray s = MArray {
       maBA :: MutableByteArray# s
 #if defined(ASSERTS)
       -- TODO: We won't need this anymore
-    , maLen :: {-# UNPACK #-} !Int -- length (in units of Word16, not bytes)
+    , maLen :: {-# UNPACK #-} !Int -- length
 #endif
     }
 
@@ -122,7 +122,7 @@ new n
                                 n
 #endif
                                 #)
-  where !(I# len#) = bytesInArray n
+  where !(I# len#) = n
         highBit    = maxBound `xor` (maxBound `shiftR` 1)
 {-# INLINE new #-}
 
@@ -135,12 +135,6 @@ unsafeFreeze MArray{..} = ST $ \s# ->
 #endif
                              #)
 {-# INLINE unsafeFreeze #-}
-
--- | Indicate how many bytes would be used for an array of the given
--- size.
-bytesInArray :: Int -> Int
-bytesInArray n = n `shiftL` 1
-{-# INLINE bytesInArray #-}
 
 -- | Unchecked read of an immutable array.  May return garbage or
 -- crash on an out-of-bounds access.
