@@ -70,21 +70,17 @@ streamASCII bs = Stream next 0 (maxSize l)
 -- | /O(n)/ Convert a 'ByteString' into a 'Stream Char', using UTF-8
 -- encoding.
 streamUtf8 :: OnDecodeError -> ByteString -> Stream Char
-streamUtf8 onErr bs = Stream next (Range 0 (U8.validateBS bs 0)) (maxSize l)
+streamUtf8 onErr bs = {-# CORE "Stream" #-} Stream next (Range 0 (U8.validateBS bs 0)) (maxSize l)
   where
     l = B.length bs
 
     next (Range i j)
         | i >= j    = if i >= l then Done else err
-        | otherwise =
-            U8.decodeChar (\c s -> Yield c (Range (i + s) j)) x1 x2 x3 x4
+        | otherwise = {-# CORE "decodeChar call" #-} U8.decodeChar
+            (\c s -> Yield c (Range (i + s) j)) (B.unsafeIndex bs) i
       where
-        x1 = idx i
-        x2 = idx (i + 1)
-        x3 = idx (i + 2)
-        x4 = idx (i + 3)
         idx = B.unsafeIndex bs
-        err = decodeError "streamUtf8" "UTF-8" onErr (Just x1)
+        err = decodeError "streamUtf8" "UTF-8" onErr (Just (idx i))
             (Range (i + 1) (U8.validateBS bs (i + 1)))
     {-# INLINE next #-}
 {-# INLINE [0] streamUtf8 #-}

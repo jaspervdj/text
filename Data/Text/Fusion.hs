@@ -66,32 +66,25 @@ default(Int)
 -- | /O(n)/ Convert a 'Text' into a 'Stream Char'.
 stream :: Text -> Stream Char
 stream (Text arr off len) = Stream next off (maxSize len)
-    where
-      !end = off+len
-      next !i
-          | i >= end  = Done
-          | otherwise = U8.decodeChar (\c s -> Yield c (i + s)) n1 n2 n3 n4
-        where
-          n1 = A.unsafeIndex arr i
-          n2 = A.unsafeIndex arr (i + 1)
-          n3 = A.unsafeIndex arr (i + 2)
-          n4 = A.unsafeIndex arr (i + 3)
+  where
+    !end = off+len
+    next !i
+        | i >= end  = Done
+        | otherwise = U8.decodeChar
+            (\c s -> Yield c (i + s)) (A.unsafeIndex arr) i
+    {-# INLINE next #-}
 {-# INLINE [0] stream #-}
 
 -- | /O(n)/ Convert a 'Text' into a 'Stream Char', but iterate
 -- backwards.
 reverseStream :: Text -> Stream Char
 reverseStream (Text arr off len) = Stream next (off+len-1) (maxSize len)
-    where
-      {-# INLINE next #-}
-      next !i
-          | i < off   = Done
-          | otherwise = U8.decodeChar (\c s -> Yield c (i - s)) n1 n2 n3 n4
-          where
-            n1 = A.unsafeIndex arr i
-            n2 = A.unsafeIndex arr (i - 1)
-            n3 = A.unsafeIndex arr (i - 2)
-            n4 = A.unsafeIndex arr (i - 3)
+  where
+    next !i
+        | i < off   = Done
+        | otherwise = U8.decodeChar
+            (\c s -> Yield c (i - s)) (A.unsafeIndex arr) i
+    {-# INLINE next #-}
 {-# INLINE [0] reverseStream #-}
 
 -- | /O(n)/ Convert a 'Stream Char' into a 'Text'.

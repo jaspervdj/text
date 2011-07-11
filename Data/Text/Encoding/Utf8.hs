@@ -197,12 +197,20 @@ foreign import ccall unsafe "_hs_utf8_validate" hs_utf8_validate
 
 -- | Hybrid combination of 'unsafeChr8', 'chr2', 'chr3' and 'chr4'. This
 -- function will not touch the bytes it doesn't need.
-decodeChar :: (Char -> Int -> a) -> Word8 -> Word8 -> Word8 -> Word8 -> a
-decodeChar f n1 n2 n3 n4
-    | n1 < 0xC0 = f (unsafeChr8 n1)    1
-    | n1 < 0xE0 = f (chr2 n1 n2)       2
-    | n1 < 0xF0 = f (chr3 n1 n2 n3)    3
-    | otherwise = f (chr4 n1 n2 n3 n4) 4
+decodeChar :: (Char -> Int -> a)  -- ^ Continuation
+           -> (Int -> Word8)      -- ^ Indexing function
+           -> Int                 -- ^ Offset
+           -> a
+decodeChar cont idx n1
+    | x1 < 0xC0 = {-# CORE "d1" #-} cont (unsafeChr8 x1)                      1
+    | x1 < 0xE0 = {-# CORE "d2" #-} cont (chr2 x1 (idx n2))                   2
+    | x1 < 0xF0 = {-# CORE "d3" #-} cont (chr3 x1 (idx n2) (idx n3))          3
+    | otherwise = {-# CORE "d4" #-} cont (chr4 x1 (idx n2) (idx n3) (idx n4)) 4
+  where
+    x1 = {-# CORE "idx x1" #-} idx n1
+    n2 = n1 + 1
+    n3 = n2 + 1
+    n4 = n3 + 1
 {-# INLINE [0] decodeChar #-}
 
 -- | This function provides fast UTF-8 encoding of characters because the user
