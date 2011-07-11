@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <string.h>
 
-#define INVALID_CONTINUATION_BYTE(x) ((x) < 0x80 || (x) > 0xBF)
+#include "cbits.h"
 
 typedef unsigned char uchar;
 
 /* Initialize bit mask to have fast matching of ASCII characters */
-long make_ascii_mask(void) {
+inline long make_ascii_mask(void) {
   int i;
   long mask = 0;
   for(i = 0; i < sizeof(long); i++) {
@@ -32,18 +32,22 @@ int _hs_utf8_validate(uchar *str, int offset, int length) {
   const uchar *end3 = end2 - 1;
   const uchar *end4 = end3 - 1;
 
+  uchar n1, n2, n3, n4;
+
   /* Assign ascii mask if we haven't done so yet */
   const long ascii_mask = make_ascii_mask();
   const uchar *end_ascii_mask = end1 - sizeof(long);
 
+#if HAVE_UNALIGNED_LOADS
   /* Fast ascii loop */
   while(p < end_ascii_mask && (*((const long *) p) & ascii_mask) == 0) {
     p += sizeof(long);
   }
+#endif
 
   /* Slow, careful loop */
   while(p < end1) {
-    uchar n1 = *p;
+    n1 = *p;
 
     /* One-byte character */
     if(n1 <= 0x7F) {
@@ -51,7 +55,7 @@ int _hs_utf8_validate(uchar *str, int offset, int length) {
 
     /* Two-byte character */
     } else if(n1 >= 0xC2 && n1 <= 0xDF && p < end2) {
-      uchar n2 = *(p + 1);
+      n2 = *(p + 1);
 
       if(n2 < 0x80 || n2 > 0xBF) break;
 
@@ -59,24 +63,24 @@ int _hs_utf8_validate(uchar *str, int offset, int length) {
 
     /* Three-byte character */
     } else if(n1 < 0xF0 && p < end3) {
-      uchar n2 = *(p + 1);
-      uchar n3 = *(p + 2);
+      n2 = *(p + 1);
+      n3 = *(p + 2);
 
       if(n1 < 0xED) {
         if(n1 == 0xE0) {
           if(n2 < 0xA0 || n2 > 0xBF ||
-              INVALID_CONTINUATION_BYTE(n3)) break;
+              NOT_CONTINUATION_BYTE(n3)) break;
         } else {
-          if(INVALID_CONTINUATION_BYTE(n2) ||
-              INVALID_CONTINUATION_BYTE(n3)) break;
+          if(NOT_CONTINUATION_BYTE(n2) ||
+              NOT_CONTINUATION_BYTE(n3)) break;
         }
       } else {
         if(n1 == 0xED) {
           if(n2 < 0x80 || n2 > 0x9F ||
-              INVALID_CONTINUATION_BYTE(n3)) break;
+              NOT_CONTINUATION_BYTE(n3)) break;
         } else {
-          if(INVALID_CONTINUATION_BYTE(n2) ||
-              INVALID_CONTINUATION_BYTE(n3)) break;
+          if(NOT_CONTINUATION_BYTE(n2) ||
+              NOT_CONTINUATION_BYTE(n3)) break;
         }
       }
 
@@ -84,22 +88,22 @@ int _hs_utf8_validate(uchar *str, int offset, int length) {
 
     /* Four-byte character */
     } else if(p < end4) {
-      uchar n2 = *(p + 1);
-      uchar n3 = *(p + 2);
-      uchar n4 = *(p + 3);
+      n2 = *(p + 1);
+      n3 = *(p + 2);
+      n4 = *(p + 3);
 
       if(n1 == 0xF0) {
         if(n2 < 0x90 || n2 > 0xBF ||
-            INVALID_CONTINUATION_BYTE(n3) ||
-            INVALID_CONTINUATION_BYTE(n4)) break;
+            NOT_CONTINUATION_BYTE(n3) ||
+            NOT_CONTINUATION_BYTE(n4)) break;
       } else if(n1 == 0xF4) {
         if(n2 < 0x80 || n2 > 0x8F ||
-            INVALID_CONTINUATION_BYTE(n3) ||
-            INVALID_CONTINUATION_BYTE(n4)) break;
+            NOT_CONTINUATION_BYTE(n3) ||
+            NOT_CONTINUATION_BYTE(n4)) break;
       } else if(n1 >= 0xF1 && n1 <= 0xF3) {
-        if(INVALID_CONTINUATION_BYTE(n2) ||
-            INVALID_CONTINUATION_BYTE(n3) ||
-            INVALID_CONTINUATION_BYTE(n4)) break;
+        if(NOT_CONTINUATION_BYTE(n2) ||
+            NOT_CONTINUATION_BYTE(n3) ||
+            NOT_CONTINUATION_BYTE(n4)) break;
       }
 
       p += 4;
