@@ -1,4 +1,14 @@
+/*
+ * Copyright (c) 2011 Bryan O'Sullivan <bos@serpentine.com>.
+ *
+ * Portions copyright (c) 2008-2010 Björn Höhrmann <bjoern@hoehrmann.de>.
+ *
+ * See http://bjoern.hoehrmann.de/utf-8/decoder/dfa/ for details.
+ */
+
 #include <string.h>
+#include <stdint.h>
+#include <stdio.h>
 
 void _hs_text_memcpy(void *dest, size_t doff, const void *src, size_t soff,
 		     size_t n)
