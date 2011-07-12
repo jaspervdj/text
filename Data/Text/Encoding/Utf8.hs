@@ -32,6 +32,7 @@ module Data.Text.Encoding.Utf8
     , validateBS
     -- * Encoding and decoding of characters
     , decodeChar
+    , decodeCharIndex
     , encodeChar
     ) where
 
@@ -204,6 +205,12 @@ decodeChar f n1 n2 n3 n4
     | n1 < 0xF0 = f (chr3 n1 n2 n3)    3
     | otherwise = f (chr4 n1 n2 n3 n4) 4
 {-# INLINE [0] decodeChar #-}
+
+-- | Version of 'decodeChar' which works with an indexing function.
+decodeCharIndex :: (Char -> Int -> a) -> (Int -> Word8) -> Int -> a
+decodeCharIndex f idx n =
+    decodeChar f (idx n) (idx (n + 1)) (idx (n + 2)) (idx (n + 3))
+{-# INLINE [0] decodeCharIndex #-}
 
 -- | This function provides fast UTF-8 encoding of characters because the user
 -- can supply custom functions for the different code paths, which should be

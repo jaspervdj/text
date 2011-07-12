@@ -77,14 +77,11 @@ streamUtf8 onErr bs = Stream next (Range 0 (U8.validateBS bs 0)) (maxSize l)
     next (Range i j)
         | i >= j    = if i >= l then Done else err
         | otherwise =
-            U8.decodeChar (\c s -> Yield c (Range (i + s) j)) x1 x2 x3 x4
+            U8.decodeCharIndex (\c s -> Yield c (Range (i + s) j)) idx i
       where
-        x1 = idx i
-        x2 = idx (i + 1)
-        x3 = idx (i + 2)
-        x4 = idx (i + 3)
         idx = B.unsafeIndex bs
-        err = decodeError "streamUtf8" "UTF-8" onErr (Just x1)
+        {-# INLINE idx #-}
+        err = decodeError "streamUtf8" "UTF-8" onErr (Just (idx i))
             (Range (i + 1) (U8.validateBS bs (i + 1)))
     {-# INLINE next #-}
 {-# INLINE [0] streamUtf8 #-}

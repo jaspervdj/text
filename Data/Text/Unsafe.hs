@@ -28,7 +28,7 @@ module Data.Text.Unsafe
 #if defined(ASSERTS)
 import Control.Exception (assert)
 #endif
-import Data.Text.Encoding.Utf8 (decodeChar)
+import Data.Text.Encoding.Utf8 (decodeChar, decodeCharIndex)
 import Data.Text.Internal (Text(..))
 import GHC.ST (ST(..))
 import Data.Text.Unsafe.Base (inlineInterleaveST, inlinePerformIO)
@@ -38,12 +38,8 @@ import qualified Data.Text.Array as A
 -- omits the check for the empty case, so there is an obligation on
 -- the programmer to provide a proof that the 'Text' is non-empty.
 unsafeHead :: Text -> Char
-unsafeHead (Text arr off _len) = decodeChar (\c _ -> c) n1 n2 n3 n4
-  where
-    n1 = A.unsafeIndex arr off
-    n2 = A.unsafeIndex arr (off + 1)
-    n3 = A.unsafeIndex arr (off + 2)
-    n4 = A.unsafeIndex arr (off + 3)
+unsafeHead (Text arr off _len) =
+    decodeCharIndex (\c _ -> c) (A.unsafeIndex arr) off
 {-# INLINE unsafeHead #-}
 
 -- | /O(1)/ A variant of 'tail' for non-empty 'Text'. 'unsafeHead'
@@ -64,13 +60,8 @@ data Iter = Iter {-# UNPACK #-} !Char {-# UNPACK #-} !Int
 -- array, returning the current character and the delta to add to give
 -- the next offset to iterate at.
 iter :: Text -> Int -> Iter
-iter (Text arr off _len) i = decodeChar (\c d -> Iter c d) n1 n2 n3 n4
-  where
-    j = off + i
-    n1 = A.unsafeIndex arr j
-    n2 = A.unsafeIndex arr (j + 1)
-    n3 = A.unsafeIndex arr (j + 2)
-    n4 = A.unsafeIndex arr (j + 3)
+iter (Text arr off _len) i =
+    decodeCharIndex (\c d -> Iter c d) (A.unsafeIndex arr) (off + i)
 {-# INLINE iter #-}
 
 -- | /O(1)/ Iterate one step through a UTF-16 array, returning the
