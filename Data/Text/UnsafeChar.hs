@@ -95,22 +95,3 @@ unsafeWrite marr i c
     writeAt i' n' = A.unsafeWrite marr i' (fromIntegral n')
     {-# INLINE writeAt #-}
 {-# INLINE unsafeWrite #-}
-
-{-
-unsafeWriteRev :: A.MArray s Word16 -> Int -> Char -> ST s Int
-unsafeWriteRev marr i c
-    | n < 0x10000 = do
-        assert (i >= 0) . assert (i < A.length marr) $
-          A.unsafeWrite marr i (fromIntegral n)
-        return (i-1)
-    | otherwise = do
-        assert (i >= 1) . assert (i < A.length marr) $
-          A.unsafeWrite marr (i-1) lo
-        A.unsafeWrite marr i hi
-        return (i-2)
-    where n = ord c
-          m = n - 0x10000
-          lo = fromIntegral $ (m `shiftR` 10) + 0xD800
-          hi = fromIntegral $ (m .&. 0x3FF) + 0xDC00
-{-# INLINE unsafeWriteRev #-}
--}

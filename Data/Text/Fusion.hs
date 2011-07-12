@@ -81,14 +81,17 @@ stream (Text arr off len) = Stream next off (maxSize len)
 -- backwards.
 reverseStream :: Text -> Stream Char
 reverseStream (Text arr off len) = Stream next (off+len-1) (maxSize len)
-    where
-      next !i
-          | i < off   = Done
-          | otherwise = U8.decodeCharIndex (\c s -> Yield c (i - s)) idx i
-          where
-            idx = A.unsafeIndex arr
-            {-# INLINE idx #-}
-      {-# INLINE next #-}
+  where
+    next !i
+        | i < off                = Done
+        | U8.continuationByte x1 = next (i - 1)
+        | otherwise              =
+            U8.decodeCharIndex (\c s -> Yield c (i - 1)) idx i
+      where
+        x1 = idx i
+        idx = A.unsafeIndex arr
+        {-# INLINE idx #-}
+    {-# INLINE next #-}
 {-# INLINE [0] reverseStream #-}
 
 -- | /O(n)/ Convert a 'Stream Char' into a 'Text'.
@@ -125,37 +128,31 @@ length = S.lengthI
 
 -- | /O(n)/ Reverse the characters of a string.
 reverse :: Stream Char -> Text
-reverse (Stream next s len0)
+reverse (Stream next s0 len0)
     | isEmpty len0 = I.empty
-    | otherwise    = I.textP arr off' len'
+    | otherwise    = I.textP textArr textOff textLen
   where
     len0' = upperBound 4 (larger len0 4)
-    (arr, (off', len')) = A.run2 (A.new len0' >>= loop s (len0'-1) len0')
-    loop !s0 !i !len marr =
-        case next s0 of
-          Done -> return (marr, (j, len-j))
-              where j = i + 1
-          Skip s1    -> loop s1 i len marr
-          Yield x s1 | i < least -> {-# SCC "reverse/resize" #-} do
-                       let newLen = len `shiftL` 1
-                       marr' <- A.new newLen
-                       A.copyM marr' (newLen-len) marr 0 len
-                       write s1 (len+i) newLen marr'
-                     | otherwise -> write s1 i len marr
-            where n = ord x
-                  least | n < 0x10000 = 0
-                        | otherwise   = 1
-                  m = n - 0x10000
-                  lo = fromIntegral $ (m `shiftR` 10) + 0xD800
-                  hi = fromIntegral $ (m .&. 0x3FF) + 0xDC00
-                  write t j l mar
-                      | n < 0x10000 = do
-                          A.unsafeWrite mar j (fromIntegral n)
-                          loop t (j-1) l mar
-                      | otherwise = do
-                          A.unsafeWrite mar (j-1) lo
-                          A.unsafeWrite mar j hi
-                          loop t (j-2) l mar
+    (textArr, (textOff, textLen)) = A.run2 $ do
+        arr <- A.new len0'
+        outer arr len0' s0 (len0' - 1)
+
+    outer arr len = loop
+      where
+        loop !s !i = case next s of
+            Done -> return (arr, (i + 1, len - i - 1))
+            Skip s' -> loop s' i
+            Yield x s'
+                | i < tb -> {-# SCC "reverse/resize" #-} do
+                    let newLen = len `shiftL` 1
+                    arr' <- A.new newLen
+                    A.copyM arr' len arr 0 len
+                    outer arr' newLen s (len + i)
+                | otherwise -> do
+                    d <- unsafeWrite arr (i - tb) x
+                    loop s' (i - d)
+              where
+                tb = U8.charTailBytes x
 {-# INLINE [0] reverse #-}
 
 -- | /O(n)/ Perform the equivalent of 'scanr' over a list, only with

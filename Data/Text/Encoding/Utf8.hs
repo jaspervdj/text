@@ -25,6 +25,7 @@ module Data.Text.Encoding.Utf8
     , chr3
     , chr4
     -- * Validation
+    , continuationByte
     , validate1
     , validate2
     , validate3
@@ -199,7 +200,7 @@ foreign import ccall unsafe "_hs_utf8_validate" hs_utf8_validate
 -- | Hybrid combination of 'unsafeChr8', 'chr2', 'chr3' and 'chr4'. This
 -- function will not touch the bytes it doesn't need.
 decodeChar :: (Char -> Int -> a) -> Word8 -> Word8 -> Word8 -> Word8 -> a
-decodeChar f n1 n2 n3 n4
+decodeChar f !n1 n2 n3 n4
     | n1 < 0xC0 = f (unsafeChr8 n1)    1
     | n1 < 0xE0 = f (chr2 n1 n2)       2
     | n1 < 0xF0 = f (chr3 n1 n2 n3)    3
