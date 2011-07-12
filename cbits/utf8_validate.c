@@ -32,8 +32,6 @@ int _hs_utf8_validate(uchar *str, int offset, int length) {
   const uchar *end3 = end2 - 1;
   const uchar *end4 = end3 - 1;
 
-  uchar n1, n2, n3, n4;
-
   /* Assign ascii mask if we haven't done so yet */
   const long ascii_mask = make_ascii_mask();
   const uchar *end_ascii_mask = end1 - sizeof(long);
@@ -47,7 +45,7 @@ int _hs_utf8_validate(uchar *str, int offset, int length) {
 
   /* Slow, careful loop */
   while(p < end1) {
-    n1 = *p;
+    const uchar n1 = *p;
 
     /* One-byte character */
     if(n1 <= 0x7F) {
@@ -55,7 +53,7 @@ int _hs_utf8_validate(uchar *str, int offset, int length) {
 
     /* Two-byte character */
     } else if(n1 >= 0xC2 && n1 <= 0xDF && p < end2) {
-      n2 = *(p + 1);
+      const uchar n2 = *(p + 1);
 
       if(n2 < 0x80 || n2 > 0xBF) break;
 
@@ -63,8 +61,8 @@ int _hs_utf8_validate(uchar *str, int offset, int length) {
 
     /* Three-byte character */
     } else if(n1 < 0xF0 && p < end3) {
-      n2 = *(p + 1);
-      n3 = *(p + 2);
+      const uchar n2 = *(p + 1);
+      const uchar n3 = *(p + 2);
 
       if(n1 < 0xED) {
         if(n1 == 0xE0) {
@@ -88,9 +86,9 @@ int _hs_utf8_validate(uchar *str, int offset, int length) {
 
     /* Four-byte character */
     } else if(p < end4) {
-      n2 = *(p + 1);
-      n3 = *(p + 2);
-      n4 = *(p + 3);
+      const uchar n2 = *(p + 1);
+      const uchar n3 = *(p + 2);
+      const uchar n4 = *(p + 3);
 
       if(n1 == 0xF0) {
         if(n2 < 0x90 || n2 > 0xBF ||
