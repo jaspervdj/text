@@ -28,18 +28,18 @@ module Data.Text.Unsafe
 #if defined(ASSERTS)
 import Control.Exception (assert)
 #endif
-import Data.Text.Encoding.Utf8 (decodeChar, decodeCharIndex)
 import Data.Text.Internal (Text(..))
 import GHC.ST (ST(..))
 import Data.Text.Unsafe.Base (inlineInterleaveST, inlinePerformIO)
 import qualified Data.Text.Array as A
+import qualified Data.Text.Encoding.Utf8 as U8
 
 -- | /O(1)/ A variant of 'head' for non-empty 'Text'. 'unsafeHead'
 -- omits the check for the empty case, so there is an obligation on
 -- the programmer to provide a proof that the 'Text' is non-empty.
 unsafeHead :: Text -> Char
 unsafeHead (Text arr off _len) =
-    decodeCharIndex (\c _ -> c) (A.unsafeIndex arr) off
+    U8.decodeCharIndex (\c _ -> c) (A.unsafeIndex arr) off
 {-# INLINE unsafeHead #-}
 
 -- | /O(1)/ A variant of 'tail' for non-empty 'Text'. 'unsafeHead'
@@ -61,7 +61,7 @@ data Iter = Iter {-# UNPACK #-} !Char {-# UNPACK #-} !Int
 -- the next offset to iterate at.
 iter :: Text -> Int -> Iter
 iter (Text arr off _len) i =
-    decodeCharIndex (\c d -> Iter c d) (A.unsafeIndex arr) (off + i)
+    U8.decodeCharIndex (\c d -> Iter c d) (A.unsafeIndex arr) (off + i)
 {-# INLINE iter #-}
 
 -- | /O(1)/ Iterate one step through a UTF-16 array, returning the
@@ -80,13 +80,11 @@ iter_ (Text arr off _len) i
 -- returning the current character and the delta to add (i.e. a
 -- negative number) to give the next offset to iterate at.
 reverseIter :: Text -> Int -> (Char,Int)
-reverseIter (Text arr off _len) i = decodeChar (,) n1 n2 n3 n4
+reverseIter (Text arr off _len) i =
+    U8.reverseDecodeCharIndex (\c s -> (c, -s)) idx (off + i)
   where
-    n1 = A.unsafeIndex arr j
-    n2 = A.unsafeIndex arr (j + 1)
-    n3 = A.unsafeIndex arr (j + 2)
-    n4 = A.unsafeIndex arr (j + 3)
-    j = off + i
+    idx = A.unsafeIndex arr
+    {-# INLINE idx #-}
 {-# INLINE reverseIter #-}
 
 -- | /O(1)/ Return the length of a 'Text' in units of 'Word8'.  This
