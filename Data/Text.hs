@@ -211,9 +211,10 @@ import Data.Text.Fusion (stream, reverseStream, unstream)
 import Data.Text.Internal (Text(..), empty, firstf, safe, text, textP)
 import qualified Prelude as P
 import Data.Text.Unsafe (Iter(..), iter, iter_, lengthWord8, reverseIter,
-                         unsafeHead, unsafeTail, dropWord8)
+                         unsafeHead, unsafeTail, dropWord8, takeWord8)
 import Data.Text.UnsafeChar (unsafeChr8)
 import qualified Data.Text.Util as U
+import qualified Data.Text.Encoding.Utf8 as U8
 import qualified Data.Text.Encoding.Utf16 as U16
 import Data.Text.Search (indices)
 #if defined(__HADDOCK__)
@@ -445,12 +446,11 @@ second f (a, b) = (a, f b)
 -- non-empty.  Subject to fusion.
 last :: Text -> Char
 last (Text arr off len)
-    -- TODO
-    | len <= 0                 = emptyError "last"
-    | n < 0xDC00 || n > 0xDFFF = unsafeChr8 n
-    | otherwise                = '\0'
-    where n  = A.unsafeIndex arr (off+len-1)
-          n0 = A.unsafeIndex arr (off+len-2)
+    | len <= 0  = emptyError "last"
+    | otherwise = U8.reverseDecodeCharIndex (\c _ -> c) idx (off + len - 1)
+  where
+    idx = A.unsafeIndex arr
+    {-# INLINE idx #-}
 {-# INLINE [1] last #-}
 
 {-# RULES
@@ -479,11 +479,13 @@ tail t@(Text arr off len)
 -- | /O(1)/ Returns all but the last character of a 'Text', which must
 -- be non-empty.  Subject to fusion.
 init :: Text -> Text
-init (Text arr off len) | len <= 0                   = emptyError "init"
-                        | n >= 0xDC00 && n <= 0xDFFF = textP arr off (len-2)
-                        | otherwise                  = textP arr off (len-1)
-    where
-      n = A.unsafeIndex arr (off+len-1)
+init t@(Text arr off len)
+    | len <= 0  = emptyError "init"
+    | otherwise = U8.reverseDecodeCharIndex
+        (\_ s -> takeWord8 (len - s) t) idx (off + len - 1)
+  where
+    idx = A.unsafeIndex arr
+    {-# INLINE idx #-}
 {-# INLINE [1] init #-}
 
 {-# RULES

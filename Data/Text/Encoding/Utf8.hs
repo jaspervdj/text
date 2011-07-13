@@ -34,6 +34,7 @@ module Data.Text.Encoding.Utf8
     -- * Encoding and decoding of characters
     , decodeChar
     , decodeCharIndex
+    , reverseDecodeCharIndex
     , encodeChar
     ) where
 
@@ -146,6 +147,11 @@ continuationByte :: Word8 -> Bool
 continuationByte x = x .&. 0xC0 == 0x80
 {-# INLINE [0] continuationByte #-}
 
+-- | Inverse of 'continuationByte'
+notContinuationByte :: Word8 -> Bool
+notContinuationByte x = x .&. 0xC0 /= 0x80
+{-# INLINE [0] notContinuationByte #-}
+
 validate1 :: Word8 -> Bool
 validate1 x1 = x1 <= 0x7F
 {-# INLINE validate1 #-}
@@ -212,6 +218,21 @@ decodeCharIndex :: (Char -> Int -> a) -> (Int -> Word8) -> Int -> a
 decodeCharIndex f idx n =
     decodeChar f (idx n) (idx (n + 1)) (idx (n + 2)) (idx (n + 3))
 {-# INLINE [0] decodeCharIndex #-}
+
+-- | Version of 'decodeCharIndex' that takes the rightmost index and tracks
+-- back to the left. Note that this function requires that the input is
+-- valid unicode.
+reverseDecodeCharIndex :: (Char -> Int -> a) -> (Int -> Word8) -> Int -> a
+reverseDecodeCharIndex f idx !r =
+    let !x1 = idx r in
+    if notContinuationByte x1 then f (unsafeChr8 x1) 1
+    else let !x2 = idx (r - 1) in
+    if notContinuationByte x2 then f (chr2 x2 x1) 2
+    else let !x3 = idx (r - 2) in
+    if notContinuationByte x3 then f (chr3 x3 x2 x1) 3
+    else let !x4 = idx (r - 3) in
+    f (chr4 x4 x3 x2 x1) 4
+{-# INLINE [0] reverseDecodeCharIndex #-}
 
 -- | This function provides fast UTF-8 encoding of characters because the user
 -- can supply custom functions for the different code paths, which should be
