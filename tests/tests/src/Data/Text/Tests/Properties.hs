@@ -34,6 +34,8 @@ import qualified Data.ByteString as B
 import qualified Data.List as L
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as E
+import qualified Data.Text.Encoding.Error as E
+import qualified Data.Text.Encoding.Fusion as E
 import qualified Data.Text.Fusion as S
 import qualified Data.Text.Fusion.Common as S
 import qualified Data.Text.IO as T
@@ -96,6 +98,12 @@ t_utf8_err' :: B.ByteString -> Property
 t_utf8_err' bs = monadicIO . assert $ case E.decodeUtf8' bs of
                                         Left err -> length (show err) >= 0
                                         Right t  -> T.length t >= 0
+
+t_streamUtf8 = (S.unstream . E.streamUtf8 E.strictDecode . E.encodeUtf8) `eq` id
+t_streamUtf16LE = (S.unstream . E.streamUtf16LE E.strictDecode . E.encodeUtf16LE) `eq` id
+t_streamUtf16BE = (S.unstream . E.streamUtf16BE E.strictDecode . E.encodeUtf16BE) `eq` id
+t_streamUtf32LE = (S.unstream . E.streamUtf32LE E.strictDecode . E.encodeUtf32LE) `eq` id
+t_streamUtf32BE = (S.unstream . E.streamUtf32BE E.strictDecode . E.encodeUtf32BE) `eq` id
 
 s_Eq s            = (s==)    `eq` ((S.streamList s==) . S.streamList)
     where _types = s :: String
@@ -731,6 +739,13 @@ tests =
       testGroup "errors" [
         testProperty "t_utf8_err" t_utf8_err,
         testProperty "t_utf8_err'" t_utf8_err'
+      ],
+      testGroup "stream" [
+        testProperty "t_streamUtf8" t_streamUtf8,
+        testProperty "t_streamUtf16LE" t_streamUtf16LE,
+        testProperty "t_streamUtf16BE" t_streamUtf16BE,
+        testProperty "t_streamUtf32LE" t_streamUtf32LE,
+        testProperty "t_streamUtf32BE" t_streamUtf32BE
       ]
     ],
 
