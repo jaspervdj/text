@@ -22,7 +22,7 @@ module Data.Text.Foreign
     , useAsPtr
     , asForeignPtr
     -- * Unsafe conversion code
-    , lengthWord8
+    , Unsafe.lengthWord8
     , unsafeCopyToPtr
     -- * Low-level manipulation
     -- $lowlevel
@@ -35,8 +35,9 @@ import Control.Exception (assert)
 #endif
 import Control.Monad.ST (unsafeIOToST)
 import Data.Text.Internal (Text(..), empty)
-import Data.Text.Unsafe (lengthWord8)
 import qualified Data.Text.Array as A
+import qualified Data.Text.Unsafe as Unsafe
+import qualified Data.Text.Encoding.Utf8 as U8
 import Data.Word (Word8)
 import Foreign.Marshal.Alloc (allocaBytes)
 import Foreign.Ptr (Ptr, castPtr, plusPtr)
@@ -95,13 +96,12 @@ fromPtr ptr (I8 len) =
 -- to maintain its validity.
 takeWord8 :: I8 -> Text -> Text
 takeWord8 (I8 n) t@(Text arr off len)
-    | n <= 0               = empty
-    | n >= len || m >= len = t
-    | otherwise            = Text arr off m
+    | n <= 0                = empty
+    | n >= len              = t
+    | U8.continuationByte x = takeWord8 (I8 (n + 1)) t
+    | otherwise             = Unsafe.takeWord8 n t
   where
-    m | w < 0xDB00 || w > 0xD8FF = n
-      | otherwise                = n+1
-    w = A.unsafeIndex arr (off+n-1)
+    x = A.unsafeIndex arr (off + n)
 
 -- | /O(1)/ Return the suffix of the 'Text', with @n@ 'Word8' units
 -- dropped from its beginning.
@@ -111,30 +111,24 @@ takeWord8 (I8 n) t@(Text arr off len)
 -- unit to maintain its validity.
 dropWord8 :: I8 -> Text -> Text
 dropWord8 (I8 n) t@(Text arr off len)
-    | n <= 0               = t
-    | n >= len || m >= len = empty
-    | otherwise            = Text arr (off+m) (len-m)
+    | n <= 0                = t
+    | n >= len              = empty
+    | U8.continuationByte x = dropWord8 (I8 (n + 1)) t
+    | otherwise             = Unsafe.dropWord8 n t
   where
-    m | w < 0xD800 || w > 0xDBFF = n
-      | otherwise                = n+1
-    w = A.unsafeIndex arr (off+n-1)
+    x = A.unsafeIndex arr (off + n)
 
 -- | /O(n)/ Copy a 'Text' to an array.  The array is assumed to be big
 -- enough to hold the contents of the entire 'Text'.
 unsafeCopyToPtr :: Text -> Ptr Word8 -> IO ()
-unsafeCopyToPtr (Text arr off len) ptr = loop ptr off
-  where
-    end = off + len
-    loop !p !i | i == end  = return ()
-               | otherwise = do
-      poke p (A.unsafeIndex arr i)
-      loop (p `plusPtr` 2) (i + 1)
+unsafeCopyToPtr (Text arr off len) ptr =
+    A.copyToPtr ptr 0 arr off len
 
 -- | /O(n)/ Perform an action on a temporary, mutable copy of a
 -- 'Text'.  The copy is freed as soon as the action returns.
 useAsPtr :: Text -> (Ptr Word8 -> I8 -> IO a) -> IO a
 useAsPtr t@(Text _arr _off len) action =
-    allocaBytes (len * 2) $ \buf -> do
+    allocaBytes len $ \buf -> do
       unsafeCopyToPtr t buf
       action (castPtr buf) (fromIntegral len)
 
