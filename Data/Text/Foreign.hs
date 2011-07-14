@@ -135,6 +135,6 @@ useAsPtr t@(Text _arr _off len) action =
 -- | /O(n)/ Make a mutable copy of a 'Text'.
 asForeignPtr :: Text -> IO (ForeignPtr Word8, I8)
 asForeignPtr t@(Text _arr _off len) = do
-  fp <- mallocForeignPtrArray len
-  withForeignPtr fp $ unsafeCopyToPtr t
-  return (fp, I8 len)
+    fp <- mallocForeignPtrArray len
+    withForeignPtr fp $ unsafeCopyToPtr t
+    return (fp, I8 len)

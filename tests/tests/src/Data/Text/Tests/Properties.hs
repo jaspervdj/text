@@ -48,6 +48,7 @@ import qualified System.IO as IO
 
 import Data.Text.Tests.QuickCheckUtils
 import Data.Text.Tests.Utils
+import Data.Text.Tests.Validate
 import qualified Data.Text.Tests.SlowFunctions as Slow
 
 t_pack_unpack       = (T.unpack . T.pack) `eq` id
@@ -677,6 +678,8 @@ tl_write_read_line e m b t = write_read head TL.filter TL.hPutStrLn
 
 t_dropWord8 m t = dropWord8 m t `T.isSuffixOf` t
 t_takeWord8 m t = takeWord8 m t `T.isPrefixOf` t
+t_validate_dropWord8 m t = validate $ dropWord8 m t
+t_validate_takeWord8 m t = validate $ takeWord8 m t
 t_take_drop_8 m t = T.append (takeWord8 n t) (dropWord8 n t) == t
   where n = small m
 t_use_from t = monadicIO $ assert . (==t) =<< run (useAsPtr t fromPtr)
@@ -1110,6 +1113,8 @@ tests =
     testGroup "lowlevel" [
       testProperty "t_dropWord8" t_dropWord8,
       testProperty "t_takeWord8" t_takeWord8,
+      testProperty "t_validate_dropWord8" t_validate_dropWord8,
+      testProperty "t_validate_takeWord8" t_validate_takeWord8,
       testProperty "t_take_drop_8" t_take_drop_8,
       testProperty "t_use_from" t_use_from
     ]
