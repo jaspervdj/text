@@ -6,19 +6,25 @@
 module Data.Text.Tests.Validate
     (
       validate
+    , validateLazy
     ) where
 
 import Data.Text.Array (Array(aBA))
-import Data.Text.Internal (Text (..))
 import Foreign.C (CInt)
 import GHC.Base (ByteArray#)
 import System.IO.Unsafe (unsafePerformIO)
+import qualified Data.Text.Internal as T
+import qualified Data.Text.Lazy.Internal as TL
 
 -- | Validate the bytes of a 'Text' value.
-validate :: Text -> Bool
-validate (Text arr off len) = unsafePerformIO $ do
+validate :: T.Text -> Bool
+validate (T.Text arr off len) = unsafePerformIO $ do
     e <- hs_utf8_validate (aBA arr) (fromIntegral off) (fromIntegral len)
     return $! fromIntegral e == len
+
+-- | Variant of 'validate' for lazy text
+validateLazy :: TL.Text -> Bool
+validateLazy = TL.foldrChunks (\c -> (validate c &&)) True
 
 -- | We import this function from the @cbits/utf8_validate.c@ file
 foreign import ccall unsafe "_hs_utf8_validate" hs_utf8_validate
