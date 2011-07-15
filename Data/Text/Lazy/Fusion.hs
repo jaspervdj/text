@@ -1,4 +1,4 @@
-{-# LANGUAGE BangPatterns #-}
+{-# LANGUAGE BangPatterns, PatternGuards #-}
 -- |
 -- Module      : Data.Text.Lazy.Fusion
 -- Copyright   : (c) 2009, 2010 Bryan O'Sullivan
@@ -29,6 +29,7 @@ import Data.Text.Fusion.Size (isEmpty, unknownSize)
 import Data.Text.Lazy.Internal
 import qualified Data.Text.Internal as I
 import qualified Data.Text.Array as A
+import qualified Data.Text.Encoding.Utf8 as U8
 import Data.Text.UnsafeChar (unsafeWrite)
 import Data.Text.UnsafeShift (shiftL)
 import Data.Text.Unsafe (Iter(..), iter)
@@ -63,20 +64,24 @@ unstreamChunks chunkSize (Stream next s0 len0)
                         fill = do a <- A.new unknownLength
                                   unsafeWrite a 0 x >>= inner a unknownLength s'
                         unknownLength = 4
-    inner marr len s !i
-        | i + 1 >= chunkSize = return (marr, (s,i))
-        | i + 1 >= len       = {-# SCC "unstreamChunks/resize" #-} do
-            let newLen = min (len `shiftL` 1) chunkSize
-            marr' <- A.new newLen
-            A.copyM marr' 0 marr 0 len
-            inner marr' newLen s i
-        | otherwise =
-            {-# SCC "unstreamChunks/inner" #-}
-            case next s of
-              Done        -> return (marr,(s,i))
-              Skip s'     -> inner marr len s' i
-              Yield x s'  -> do d <- unsafeWrite marr i x
-                                inner marr len s' (i+d)
+
+    inner marr len = {-# SCC "unstreamChunks/inner" #-} go
+      where
+        go s !i = case next s of
+            Done       -> return (marr, (s, i))
+            Skip s'    -> go s' i
+            Yield x s'
+                | j >= chunkSize -> return (marr, (s, i))
+                | j >= len -> {-# SCC "unstreamChunks/resize" #-} do
+                    let len' = min (len `shiftL` 1) chunkSize
+                    marr' <- A.new len'
+                    A.copyM marr' 0 marr 0 len'
+                    inner marr' len' s i
+                | otherwise -> do
+                    d <- unsafeWrite marr i x
+                    go s' (i + d)
+              where
+                j = i + U8.charTailBytes x
 {-# INLINE [0] unstreamChunks #-}
 
 -- | /O(n)/ Convert a 'Stream Char' into a 'Text', using

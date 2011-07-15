@@ -180,7 +180,7 @@ decodeUtf8' = unsafePerformIO . try . evaluate . decodeUtf8With strictDecode
 encodeUtf8 :: Text -> ByteString
 encodeUtf8 (Text arr off len) = unsafePerformIO $ do
     fp <- mallocByteString len
-    withForeignPtr fp $ \ptr -> copyToPtr ptr 0 arr off (off + len)
+    withForeignPtr fp $ \ptr -> copyToPtr ptr 0 arr off len
     return $! PS fp 0 len
 {-# INLINE encodeUtf8 #-}
 
