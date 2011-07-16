@@ -623,6 +623,8 @@ t_builderSingleton = id `eqP`
                      (unpackS . TB.toLazyText . mconcat . map TB.singleton)
 t_builderFromText = L.concat `eq` (unpackS . TB.toLazyText . mconcat .
                                    map (TB.fromText . packS))
+t_builderFromString = L.concat `eq` (unpackS . TB.toLazyText . mconcat .
+                                    map TB.fromString)
 t_builderAssociative s1 s2 s3 =
     TB.toLazyText (b1 `mappend` (b2 `mappend` b3)) ==
     TB.toLazyText ((b1 `mappend` b2) `mappend` b3)
@@ -1100,6 +1102,7 @@ tests =
     testGroup "builder" [
       testProperty "t_builderSingleton" t_builderSingleton,
       testProperty "t_builderFromText" t_builderFromText,
+      testProperty "t_builderFromString" t_builderFromString,
       testProperty "t_builderAssociative" t_builderAssociative
     ],
 
