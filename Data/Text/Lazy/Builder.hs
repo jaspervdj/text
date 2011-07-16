@@ -44,13 +44,11 @@ module Data.Text.Lazy.Builder
    ) where
 
 import Control.Monad.ST (ST, runST)
-import Data.Bits ((.&.))
 import Data.Monoid (Monoid(..))
 import Data.Text.Internal (Text(..))
 import Data.Text.Lazy.Internal (smallChunkSize)
 import Data.Text.Unsafe (inlineInterleaveST)
-import Data.Text.UnsafeChar (ord, unsafeWrite)
-import Data.Text.UnsafeShift (shiftR)
+import Data.Text.UnsafeChar (unsafeWrite)
 import Prelude hiding (map, putChar)
 
 import qualified Data.String as String
@@ -113,17 +111,7 @@ empty = Builder (\ k buf -> k buf)
 --  * @'toLazyText' ('singleton' c) = 'L.singleton' c@
 --
 singleton :: Char -> Builder
-singleton c = writeAtMost 2 $ \ marr o ->
-    if n < 0x10000
-    then A.unsafeWrite marr o (fromIntegral n) >> return 1
-    else do
-        A.unsafeWrite marr o lo
-        A.unsafeWrite marr (o+1) hi
-        return 2
-  where n = ord c
-        m = n - 0x10000
-        lo = fromIntegral $ (m `shiftR` 10) + 0xD800
-        hi = fromIntegral $ (m .&. 0x3FF) + 0xDC00
+singleton c = writeAtMost 4 $ \marr o -> unsafeWrite marr o c
 {-# INLINE singleton #-}
 
 ------------------------------------------------------------------------
