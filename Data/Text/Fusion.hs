@@ -47,8 +47,7 @@ module Data.Text.Fusion
     ) where
 
 import Prelude (Bool(..), Char, Maybe(..), Monad(..), Int,
-                Num(..), Ord(..), ($), (&&),
-                fromIntegral, otherwise)
+                Num(..), Ord(..), ($), (&&), otherwise)
 import Data.Bits ((.&.))
 import Data.Text.Internal (Text(..))
 import Data.Text.UnsafeChar (ord, unsafeWrite)
@@ -59,22 +58,20 @@ import Data.Text.Fusion.Internal
 import Data.Text.Fusion.Size
 import qualified Data.Text.Internal as I
 import qualified Data.Text.Encoding.Utf8 as U8
-import qualified Prelude as P
 
 default(Int)
 
 -- | /O(n)/ Convert a 'Text' into a 'Stream Char'.
 stream :: Text -> Stream Char
 stream (Text arr off len) = Stream next off (maxSize len)
-    where
-      !end = off+len
-      next !i
-          | i >= end  = Done
-          | otherwise = U8.decodeCharIndex (\c s -> Yield c (i + s)) idx i
-          where
-            idx = A.unsafeIndex arr
-            {-# INLINE idx #-}
-      {-# INLINE next #-}
+  where
+    !end = off + len
+    next !i
+        | i >= end  = Done
+        | otherwise = U8.decodeCharIndex (\c s -> Yield c (i + s)) idx i
+      where
+        idx = A.unsafeIndex arr
+    {-# INLINE next #-}
 {-# INLINE [0] stream #-}
 
 -- | /O(n)/ Convert a 'Text' into a 'Stream Char', but iterate
@@ -84,37 +81,42 @@ reverseStream (Text arr off len) = Stream next (off+len-1) (maxSize len)
   where
     next !i
         | i < off                = Done
+        -- We always have to guess and check if we're dealing with a
+        -- continuation byte.
         | U8.continuationByte x1 = next (i - 1)
         | otherwise              =
-            U8.decodeCharIndex (\c s -> Yield c (i - 1)) idx i
+            U8.decodeCharIndex (\c _ -> Yield c (i - 1)) idx i
       where
         x1 = idx i
         idx = A.unsafeIndex arr
-        {-# INLINE idx #-}
     {-# INLINE next #-}
 {-# INLINE [0] reverseStream #-}
 
 -- | /O(n)/ Convert a 'Stream Char' into a 'Text'.
 unstream :: Stream Char -> Text
-unstream (Stream next0 s0 len) = I.textP (P.fst a) 0 (P.snd a)
+unstream (Stream next0 s0 len) = I.textP textArr 0 textLen
   where
-    a = A.run2 (A.new mlen >>= \arr -> outer arr mlen s0 0)
-      where mlen = upperBound 4 len
+    (textArr, textLen) = A.run2 $ do
+        let mlen = upperBound 4 len
+        arr <- A.new mlen
+        outer arr mlen s0 0
+
     outer arr top = loop
       where
-        loop !s !i =
-            case next0 s of
-              Done          -> return (arr, i)
-              Skip s'       -> loop s' i
-              Yield x s'
+        loop !s !i = case next0 s of
+            Done            -> return (arr, i)
+            Skip s'         -> loop s' i
+            Yield x s'
                 | j >= top  -> {-# SCC "unstream/resize" #-} do
-                               let top' = (top + 1) `shiftL` 1
-                               arr' <- A.new top'
-                               A.copyM arr' 0 arr 0 top
-                               outer arr' top' s i
-                | otherwise -> do d <- unsafeWrite arr i x
-                                  loop s' (i+d)
-                where j = i + U8.charTailBytes x
+                    let top' = (top + 1) `shiftL` 1
+                    arr' <- A.new top'
+                    A.copyM arr' 0 arr 0 top
+                    outer arr' top' s i
+                | otherwise -> do
+                    d <- unsafeWrite arr i x
+                    loop s' (i+d)
+              where
+                j = i + U8.charTailBytes x
 {-# INLINE [0] unstream #-}
 {-# RULES "STREAM stream/unstream fusion" forall s. stream (unstream s) = s #-}
 
