@@ -114,32 +114,3 @@ int _hs_utf8_validate(uchar *str, int offset, int length) {
 
   return p - str - offset;
 }
-
-/*
-void test_is_valid(char *str)
-{
-  int length = strlen(str);
-  int v = _hs_utf8_validate((uchar *) str, 0, length);
-  if(v >= length)
-  {
-    printf("%s is valid\n", str);    
-  }
-  else
-  {
-    printf("%s is invalid at byte %d\n", str, v);    
-  }
-}
-
-int main(int argc, char **argv)
-{
-  test_is_valid("Hello world");    
-  test_is_valid("O hai lambda \xCE\xBB");    
-  test_is_valid("\xC0\xC0");    
-  test_is_valid("\x82\xe5\xaa\xc9\xd3\x10\xd2\x82\xc7\x67\x4f\x93\xff\xa4\xa1");
-  test_is_valid("\xa6\x44\x42\x28\x3a\x69\xb8\xa4\x5a\xe1\x55\x47\xf\xe8\xb1\x14\xc\xe2\xff\xd5");
-
-  printf("Mask: %lx\n", ascii_mask);
-
-  return 0;
-}
-*/
