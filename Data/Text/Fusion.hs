@@ -47,11 +47,10 @@ module Data.Text.Fusion
     ) where
 
 import Prelude (Bool(..), Char, Maybe(..), Monad(..), Int,
-                Num(..), Ord(..), ($), (&&), otherwise)
-import Data.Bits ((.&.))
+                Num(..), Ord(..), ($), otherwise)
 import Data.Text.Internal (Text(..))
-import Data.Text.UnsafeChar (ord, unsafeWrite)
-import Data.Text.UnsafeShift (shiftL, shiftR)
+import Data.Text.UnsafeChar (unsafeWrite)
+import Data.Text.UnsafeShift (shiftL)
 import qualified Data.Text.Array as A
 import qualified Data.Text.Fusion.Common as S
 import Data.Text.Fusion.Internal
@@ -77,15 +76,12 @@ stream (Text arr off len) = Stream next off (maxSize len)
 -- | /O(n)/ Convert a 'Text' into a 'Stream Char', but iterate
 -- backwards.
 reverseStream :: Text -> Stream Char
-reverseStream (Text arr off len) = Stream next (off+len-1) (maxSize len)
+reverseStream (Text arr off len) = Stream next (off + len - 1) (maxSize len)
   where
     next !i
-        | i < off                = Done
-        -- We always have to guess and check if we're dealing with a
-        -- continuation byte.
-        | U8.continuationByte x1 = next (i - 1)
-        | otherwise              =
-            U8.decodeCharIndex (\c _ -> Yield c (i - 1)) idx i
+        | i < off   = Done
+        | otherwise =
+            U8.reverseDecodeCharIndex (\c w -> Yield c (i - w)) idx i
       where
         x1 = idx i
         idx = A.unsafeIndex arr
