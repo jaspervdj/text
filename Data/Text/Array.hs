@@ -295,21 +295,21 @@ diff arrA offA arrB offB count = inlinePerformIO $ do
   return $! fromIntegral i
 {-# INLINE diff #-}
 
-foreign import ccall unsafe "_hs_text_memcpy" memcpyI
+foreign import ccall unsafe "_hs_text_utf8_memcpy" memcpyI
     :: MutableByteArray# s -> CSize -> ByteArray# -> CSize -> CSize -> IO ()
 
-foreign import ccall unsafe "_hs_text_memcpy" memcpyToPtr
+foreign import ccall unsafe "_hs_text_utf8_memcpy" memcpyToPtr
     :: Ptr Word8 -> CSize -> ByteArray# -> CSize -> CSize -> IO ()
 
-foreign import ccall unsafe "_hs_text_memcpy" memcpyFromPtr
+foreign import ccall unsafe "_hs_text_utf8_memcpy" memcpyFromPtr
     :: MutableByteArray# s -> CSize -> Ptr Word8 -> CSize -> CSize -> IO ()
 
-foreign import ccall unsafe "_hs_text_memcmp" memcmp
+foreign import ccall unsafe "_hs_text_utf8_memcmp" memcmp
     :: ByteArray# -> CSize -> ByteArray# -> CSize -> CSize -> IO CInt
 
-foreign import ccall unsafe "_hs_text_memcpy" memcpyM
+foreign import ccall unsafe "_hs_text_utf8_memcpy" memcpyM
     :: MutableByteArray# s -> CSize -> MutableByteArray# s -> CSize -> CSize
     -> IO ()
 
-foreign import ccall unsafe "_hs_text_diff" c_diff
+foreign import ccall unsafe "_hs_text_utf8_diff" c_diff
     :: ByteArray# -> CSize -> ByteArray# -> CSize -> CSize -> IO CSize

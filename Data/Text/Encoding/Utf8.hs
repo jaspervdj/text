@@ -196,11 +196,11 @@ validateBS :: ByteString  -- ^ Bytestring to check
            -> Int         -- ^ Offset to start checking
            -> Int         -- ^ Index of the first invalid byte
 validateBS (PS ps s l) o = inlinePerformIO $ withForeignPtr ps $ \ptr -> do
-    e <- hs_utf8_validate ptr (fromIntegral (s + o)) (fromIntegral (l - o))
+    e <- hs_text_utf8_validate ptr (fromIntegral (s + o)) (fromIntegral (l - o))
     return $ (fromIntegral e) + o
 {-# INLINE validateBS #-}
 
-foreign import ccall unsafe "_hs_utf8_validate" hs_utf8_validate
+foreign import ccall unsafe "_hs_text_utf8_validate" hs_text_utf8_validate
     :: Ptr Word8 -> CInt -> CInt -> IO CInt
 
 -- | Hybrid combination of 'unsafeChr8', 'chr2', 'chr3' and 'chr4'. This

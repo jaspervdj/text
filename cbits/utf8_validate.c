@@ -24,7 +24,7 @@ inline long make_ascii_mask(void) {
  *
  * Return value: the index of the first invalid byte in the string
  */
-int _hs_utf8_validate(uchar *str, int offset, int length) {
+int _hs_text_utf8_validate(uchar *str, int offset, int length) {
   uchar *p = str + offset;
 
   const uchar *end1 = p + length;

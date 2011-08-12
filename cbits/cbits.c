@@ -8,13 +8,13 @@
 
 #include "cbits.h"
 
-void _hs_text_memcpy(void *dest, size_t doff, const void *src, size_t soff,
+void _hs_text_utf8_memcpy(void *dest, size_t doff, const void *src, size_t soff,
 		     size_t n)
 {
   memcpy(dest + doff, src + soff, n);
 }
 
-int _hs_text_memcmp(const void *a, size_t aoff, const void *b, size_t boff,
+int _hs_text_utf8_memcmp(const void *a, size_t aoff, const void *b, size_t boff,
 		    size_t n)
 {
   return memcmp(a + aoff, b + boff, n);
@@ -23,7 +23,7 @@ int _hs_text_memcmp(const void *a, size_t aoff, const void *b, size_t boff,
 /* Compares two arrays of equal length, and return the index at which they
  * differ. If the length of the array chunks is returned, they are equal.
  */
-size_t _hs_text_diff(void *a, size_t a_off, void *b, size_t b_off, size_t n)
+size_t _hs_text_utf8_diff(void *a, size_t a_off, void *b, size_t b_off, size_t n)
 {
   char *a_p = ((char *) a) + a_off;
   char *b_p = ((char *) b) + b_off;
