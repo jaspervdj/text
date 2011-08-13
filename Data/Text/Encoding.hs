@@ -123,7 +123,8 @@ decodeUtf8With onErr bs = textP textA 0 textLen
 
             -- Copy, copy replace character with optional resize and continue
             Just c -> do
-                -- The needed len
+                -- Check that we have at least the length needed for the valid
+                -- piece we want to copy, and the replacement character
                 let needed = n + copyLen + U8.charTailBytes c + end - m' - 1
                 if needed < arrLen
                     -- Long enough
@@ -134,7 +135,7 @@ decodeUtf8With onErr bs = textP textA 0 textLen
 
                     -- Resize needed
                     else do
-                        let arrLen' = arrLen `shiftL` 1
+                        let arrLen' = (arrLen + 1) `shiftL` 1
                         arr' <- A.new arrLen'
                         A.copyM arr' 0 arr 0 n
                         copyTo arr'
