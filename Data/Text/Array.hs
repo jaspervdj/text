@@ -71,7 +71,8 @@ import Foreign.Ptr (Ptr)
 import Foreign.C.Types (CInt, CSize)
 import GHC.Base (ByteArray#, MutableByteArray#, Int(..),
                  indexWord8Array#, indexWordArray#, newByteArray#,
-                 readWord8Array#, readWordArray#, unsafeCoerce#,
+                 readWord8Array#, readWordArray#, sizeofByteArray#,
+                 sizeofMutableByteArray#, unsafeCoerce#,
                  writeWord8Array#, writeWordArray#)
 import GHC.ST (ST(..), runST)
 import GHC.Word (Word8(..), Word(..))
@@ -79,22 +80,10 @@ import GHC.Word (Word8(..), Word(..))
 import Prelude hiding (length, read)
 
 -- | Immutable array type.
-data Array = Array {
-      aBA :: ByteArray#
-#if defined(ASSERTS)
-      -- TODO: We won't need this anymore
-    , aLen :: {-# UNPACK #-} !Int -- length
-#endif
-    }
+data Array = Array { aBA :: ByteArray# }
 
 -- | Mutable array type, for use in the ST monad.
-data MArray s = MArray {
-      maBA :: MutableByteArray# s
-#if defined(ASSERTS)
-      -- TODO: We won't need this anymore
-    , maLen :: {-# UNPACK #-} !Int -- length
-#endif
-    }
+data MArray s = MArray { maBA :: MutableByteArray# s }
 
 #if defined(ASSERTS)
 -- | Operations supported by all arrays.
@@ -103,11 +92,11 @@ class IArray a where
     length :: a -> Int
 
 instance IArray Array where
-    length = aLen
+    length (Array ba#) = I# (sizeofByteArray# ba#)
     {-# INLINE length #-}
 
 instance IArray (MArray s) where
-    length = maLen
+    length (MArray ma#) = I# (sizeofMutableByteArray# ma#)
     {-# INLINE length #-}
 #endif
 
@@ -117,57 +106,48 @@ new n
   | n < 0 || n .&. highBit /= 0 = error $ "Data.Text.Array.new: size overflow"
   | otherwise = ST $ \s1# ->
        case newByteArray# len# s1# of
-         (# s2#, marr# #) -> (# s2#, MArray marr#
-#if defined(ASSERTS)
-                                n
-#endif
-                                #)
+         (# s2#, marr# #) -> (# s2#, MArray marr# #)
   where !(I# len#) = n
         highBit    = maxBound `xor` (maxBound `shiftR` 1)
 {-# INLINE new #-}
 
 -- | Freeze a mutable array. Do not mutate the 'MArray' afterwards!
 unsafeFreeze :: MArray s -> ST s Array
-unsafeFreeze MArray{..} = ST $ \s# ->
-                          (# s#, Array (unsafeCoerce# maBA)
-#if defined(ASSERTS)
-                             maLen
-#endif
-                             #)
+unsafeFreeze MArray{..} = ST $ \s# -> (# s#, Array (unsafeCoerce# maBA) #)
 {-# INLINE unsafeFreeze #-}
 
 -- | Unchecked read of an immutable array.  May return garbage or
 -- crash on an out-of-bounds access.
 unsafeIndex :: Array -> Int -> Word8
-unsafeIndex Array{..} i@(I# i#) =
-  CHECK_BOUNDS("unsafeIndex",aLen,i)
-    case indexWord8Array# aBA i# of r# -> (W8# r#)
+unsafeIndex arr i@(I# i#) =
+  CHECK_BOUNDS("unsafeIndex", length arr, i)
+    case indexWord8Array# (aBA arr) i# of r# -> (W8# r#)
 {-# INLINE unsafeIndex #-}
 
 -- | Unchecked read of an immutable array.  May return garbage or
 -- crash on an out-of-bounds access.
 unsafeIndexWord :: Array -> Int -> Word
-unsafeIndexWord Array{..} i@(I# i#) =
-  CHECK_BOUNDS("unsafeIndexWord",aLen`div`wordFactor,i)
-    case indexWordArray# aBA i# of r# -> (W# r#)
+unsafeIndexWord arr i@(I# i#) =
+  CHECK_BOUNDS("unsafeIndexWord", length arr `div` wordFactor, i)
+    case indexWordArray# (aBA arr) i# of r# -> (W# r#)
 {-# INLINE unsafeIndexWord #-}
 
 -- | Unchecked read of a mutable array.  May return garbage or
 -- crash on an out-of-bounds access.
 unsafeRead :: MArray s -> Int -> ST s Word8
-unsafeRead MArray{..} i@(I# i#) = ST $ \s# ->
-  CHECK_BOUNDS("unsafeRead",maLen,i)
-  case readWord8Array# maBA i# s# of
-    (# s2#, r# #) -> (# s2#, W8# r# #)
+unsafeRead marr i@(I# i#) = ST $ \s# ->
+  CHECK_BOUNDS("unsafeRead", length marr, i)
+    case readWord8Array# (maBA marr) i# s# of
+      (# s2#, r# #) -> (# s2#, W8# r# #)
 {-# INLINE unsafeRead #-}
 
 -- | Unchecked write of a mutable array.  May return garbage or crash
 -- on an out-of-bounds access.
 unsafeWrite :: MArray s -> Int -> Word8 -> ST s ()
-unsafeWrite MArray{..} i@(I# i#) (W8# e#) = ST $ \s1# ->
-  CHECK_BOUNDS("unsafeWrite",maLen,i)
-  case writeWord8Array# maBA i# e# s1# of
-    s2# -> (# s2#, () #)
+unsafeWrite marr i@(I# i#) (W8# e#) = ST $ \s1# ->
+  CHECK_BOUNDS("unsafeWrite", length marr, i)
+    case writeWord8Array# (maBA marr) i# e# s1# of
+      s2# -> (# s2#, () #)
 {-# INLINE unsafeWrite #-}
 
 -- | Convert an immutable array to a list.
