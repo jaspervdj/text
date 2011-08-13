@@ -19,7 +19,7 @@ module Data.Text.Fusion.Internal
     , M(..)
     , M8
     , PairS(..)
-    , S(..)
+    , RS(..)
     , Step(..)
     , Stream(..)
     , Switch(..)
@@ -38,8 +38,12 @@ data M a = N
 
 type M8 = M Word8
 
--- Restreaming state.
-data S s = S !s !M8 !M8 !M8
+-- | Restreaming state
+data RS s
+    = RS0 !s
+    | RS1 !s {-# UNPACK #-} !Word8
+    | RS2 !s {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
+    | RS3 !s {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8 {-# UNPACK #-} !Word8
 
 infixl 2 :*:
 data PairS a b = !a :*: !b

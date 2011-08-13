@@ -29,7 +29,7 @@ module Data.Text.Encoding.Fusion.Common
 
 import Data.Bits ((.&.))
 import Data.Text.Fusion (Step(..), Stream(..))
-import Data.Text.Fusion.Internal (M(..), S(..))
+import Data.Text.Fusion.Internal (RS(..))
 import Data.Text.UnsafeChar (ord)
 import Data.Text.UnsafeShift (shiftR)
 import Data.Word (Word8)
@@ -37,120 +37,107 @@ import qualified Data.Text.Encoding.Utf8 as U8
 
 -- | /O(n)/ Convert a Stream Char into a UTF-8 encoded Stream Word8.
 restreamUtf8 :: Stream Char -> Stream Word8
-restreamUtf8 (Stream next0 s0 len) = Stream next (S s0 N N N) (len * 2)
+restreamUtf8 (Stream next0 s0 len) = Stream next (RS0 s0) (len * 2)
   where
-    {-# INLINE next #-}
-    next (S s N N N) = case next0 s of
+    next (RS0 s) = case next0 s of
         Done       -> Done
-        Skip s'    -> Skip (S s' N N N)
+        Skip s'    -> Skip (RS0 s')
         Yield x s' -> U8.encodeChar
-            (\w1          -> Yield w1 (S s' N N N))
-            (\w1 w2       -> Yield w1 (S s' (J w2) N N))
-            (\w1 w2 w3    -> Yield w1 (S s' (J w2) (J w3) N))
-            (\w1 w2 w3 w4 -> Yield w1 (S s' (J w2) (J w3) (J w4)))
+            (\w1          -> Yield w1 (RS0 s'))
+            (\w1 w2       -> Yield w1 (RS1 s' w2))
+            (\w1 w2 w3    -> Yield w1 (RS2 s' w2 w3))
+            (\w1 w2 w3 w4 -> Yield w1 (RS3 s' w2 w3 w4))
             x
-    next (S s (J x2) N N)   = Yield x2 (S s N N N)
-    next (S s (J x2) x3 N)  = Yield x2 (S s x3 N N)
-    next (S s (J x2) x3 x4) = Yield x2 (S s x3 x4 N)
-    next _ = internalError "restreamUtf8"
+    next (RS1 s x1)       = Yield x1 (RS0 s)
+    next (RS2 s x1 x2)    = Yield x1 (RS1 s x2)
+    next (RS3 s x1 x2 x3) = Yield x1 (RS2 s x2 x3)
+    {-# INLINE next #-}
 {-# INLINE restreamUtf8 #-}
 
 restreamUtf16BE :: Stream Char -> Stream Word8
-restreamUtf16BE (Stream next0 s0 len) =
-    Stream next (S s0 N N N) (len*2)
-    where
-      {-# INLINE next #-}
-      next (S s N N N) = case next0 s of
-          Done -> Done
-          Skip s' -> Skip (S s' N N N)
-          Yield x xs
-              | n < 0x10000 -> Yield (fromIntegral $ n `shiftR` 8) $
-                               S xs (J $ fromIntegral n) N N
-              | otherwise   -> Yield c1 $
-                               S xs (J c2) (J c3) (J c4)
-              where
-                n  = ord x
-                n1 = n - 0x10000
-                c1 = fromIntegral (n1 `shiftR` 18 + 0xD8)
-                c2 = fromIntegral (n1 `shiftR` 10)
-                n2 = n1 .&. 0x3FF
-                c3 = fromIntegral (n2 `shiftR` 8 + 0xDC)
-                c4 = fromIntegral n2
-      next (S s (J x2) N N)   = Yield x2 (S s N N N)
-      next (S s (J x2) x3 N)  = Yield x2 (S s x3 N N)
-      next (S s (J x2) x3 x4) = Yield x2 (S s x3 x4 N)
-      next _ = internalError "restreamUtf16BE"
+restreamUtf16BE (Stream next0 s0 len) = Stream next (RS0 s0) (len * 2)
+  where
+    next (RS0 s) = case next0 s of
+        Done -> Done
+        Skip s' -> Skip (RS0 s')
+        Yield x xs
+            | n < 0x10000 -> Yield (fromIntegral $ n `shiftR` 8) $
+                             RS1 xs (fromIntegral n)
+            | otherwise   -> Yield c1 $
+                             RS3 xs c2 c3 c4
+            where
+              n  = ord x
+              n1 = n - 0x10000
+              c1 = fromIntegral (n1 `shiftR` 18 + 0xD8)
+              c2 = fromIntegral (n1 `shiftR` 10)
+              n2 = n1 .&. 0x3FF
+              c3 = fromIntegral (n2 `shiftR` 8 + 0xDC)
+              c4 = fromIntegral n2
+    next (RS1 s x2)       = Yield x2 (RS0 s)
+    next (RS2 s x2 x3)    = Yield x2 (RS1 s x3)
+    next (RS3 s x2 x3 x4) = Yield x2 (RS2 s x3 x4)
+    {-# INLINE next #-}
 {-# INLINE restreamUtf16BE #-}
 
 restreamUtf16LE :: Stream Char -> Stream Word8
-restreamUtf16LE (Stream next0 s0 len) =
-    Stream next (S s0 N N N) (len*2)
-    where
-      {-# INLINE next #-}
-      next (S s N N N) = case next0 s of
-          Done -> Done
-          Skip s' -> Skip (S s' N N N)
-          Yield x xs
-              | n < 0x10000 -> Yield (fromIntegral n) $
-                               S xs (J (fromIntegral $ shiftR n 8)) N N
-              | otherwise   -> Yield c1 $
-                               S xs (J c2) (J c3) (J c4)
-              where
-                n  = ord x
-                n1 = n - 0x10000
-                c2 = fromIntegral (shiftR n1 18 + 0xD8)
-                c1 = fromIntegral (shiftR n1 10)
-                n2 = n1 .&. 0x3FF
-                c4 = fromIntegral (shiftR n2 8 + 0xDC)
-                c3 = fromIntegral n2
-      next (S s (J x2) N N)   = Yield x2 (S s N N N)
-      next (S s (J x2) x3 N)  = Yield x2 (S s x3 N N)
-      next (S s (J x2) x3 x4) = Yield x2 (S s x3 x4 N)
-      next _ = internalError "restreamUtf16LE"
+restreamUtf16LE (Stream next0 s0 len) = Stream next (RS0 s0) (len * 2)
+  where
+    next (RS0 s) = case next0 s of
+        Done -> Done
+        Skip s' -> Skip (RS0 s')
+        Yield x xs
+            | n < 0x10000 -> Yield (fromIntegral n) $
+                             RS1 xs (fromIntegral $ shiftR n 8)
+            | otherwise   -> Yield c1 $
+                             RS3 xs c2 c3 c4
+            where
+              n  = ord x
+              n1 = n - 0x10000
+              c2 = fromIntegral (shiftR n1 18 + 0xD8)
+              c1 = fromIntegral (shiftR n1 10)
+              n2 = n1 .&. 0x3FF
+              c4 = fromIntegral (shiftR n2 8 + 0xDC)
+              c3 = fromIntegral n2
+    next (RS1 s x2)       = Yield x2 (RS0 s)
+    next (RS2 s x2 x3)    = Yield x2 (RS1 s x3)
+    next (RS3 s x2 x3 x4) = Yield x2 (RS2 s x3 x4)
+    {-# INLINE next #-}
 {-# INLINE restreamUtf16LE #-}
 
 restreamUtf32BE :: Stream Char -> Stream Word8
-restreamUtf32BE (Stream next0 s0 len) =
-    Stream next (S s0 N N N) (len*2)
-    where
-    {-# INLINE next #-}
-    next (S s N N N) = case next0 s of
+restreamUtf32BE (Stream next0 s0 len) = Stream next (RS0 s0) (len * 2)
+  where
+    next (RS0 s) = case next0 s of
         Done       -> Done
-        Skip s'    -> Skip (S s' N N N)
-        Yield x xs -> Yield c1 (S xs (J c2) (J c3) (J c4))
+        Skip s'    -> Skip (RS0 s')
+        Yield x xs -> Yield c1 (RS3 xs c2 c3 c4)
           where
             n  = ord x
             c1 = fromIntegral $ shiftR n 24
             c2 = fromIntegral $ shiftR n 16
             c3 = fromIntegral $ shiftR n 8
             c4 = fromIntegral n
-    next (S s (J x2) N N) = Yield x2 (S s N N N)
-    next (S s (J x2) x3 N)      = Yield x2 (S s x3 N N)
-    next (S s (J x2) x3 x4)           = Yield x2 (S s x3 x4 N)
-    next _ = internalError "restreamUtf32BE"
+    next (RS1 s x2)       = Yield x2 (RS0 s)
+    next (RS2 s x2 x3)    = Yield x2 (RS1 s x3)
+    next (RS3 s x2 x3 x4) = Yield x2 (RS2 s x3 x4)
+    {-# INLINE next #-}
 {-# INLINE restreamUtf32BE #-}
 
 restreamUtf32LE :: Stream Char -> Stream Word8
-restreamUtf32LE (Stream next0 s0 len) =
-    Stream next (S s0 N N N) (len*2)
-    where
-    {-# INLINE next #-}
-    next (S s N N N) = case next0 s of
+restreamUtf32LE (Stream next0 s0 len) = Stream next (RS0 s0) (len * 2)
+  where
+    next (RS0 s) = case next0 s of
         Done       -> Done
-        Skip s'    -> Skip (S s' N N N)
-        Yield x xs -> Yield c1 (S xs (J c2) (J c3) (J c4))
+        Skip s'    -> Skip (RS0 s')
+        Yield x xs -> Yield c1 (RS3 xs c2 c3 c4)
           where
             n  = ord x
             c4 = fromIntegral $ shiftR n 24
             c3 = fromIntegral $ shiftR n 16
             c2 = fromIntegral $ shiftR n 8
             c1 = fromIntegral n
-    next (S s (J x2) N N)   = Yield x2 (S s N N N)
-    next (S s (J x2) x3 N)  = Yield x2 (S s x3 N N)
-    next (S s (J x2) x3 x4) = Yield x2 (S s x3 x4 N)
-    next _ = internalError "restreamUtf32LE"
+    next (RS1 s x2)       = Yield x2 (RS0 s)
+    next (RS2 s x2 x3)    = Yield x2 (RS1 s x3)
+    next (RS3 s x2 x3 x4) = Yield x2 (RS2 s x3 x4)
+    {-# INLINE next #-}
 {-# INLINE restreamUtf32LE #-}
-
-internalError :: String -> a
-internalError func =
-    error $ "Data.Text.Encoding.Fusion.Common." ++ func ++ ": internal error"
