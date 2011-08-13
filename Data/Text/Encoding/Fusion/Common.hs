@@ -37,28 +37,22 @@ import qualified Data.Text.Encoding.Utf8 as U8
 
 -- | /O(n)/ Convert a Stream Char into a UTF-8 encoded Stream Word8.
 restreamUtf8 :: Stream Char -> Stream Word8
-restreamUtf8 (Stream next0 s0 len) =
-    Stream next (S s0 N N N) (len*2)
-    where
-      {-# INLINE next #-}
-      next (S s N N N) = case next0 s of
-                  Done              -> Done
-                  Skip s'           -> Skip (S s' N N N)
-                  Yield x xs
-                      | n <= 0x7F   -> Yield c  (S xs N N N)
-                      | n <= 0x07FF -> Yield a2 (S xs (J b2) N N)
-                      | n <= 0xFFFF -> Yield a3 (S xs (J b3) (J c3) N)
-                      | otherwise   -> Yield a4 (S xs (J b4) (J c4) (J d4))
-                      where
-                        n  = ord x
-                        c  = fromIntegral n
-                        (a2,b2) = U8.ord2 x
-                        (a3,b3,c3) = U8.ord3 x
-                        (a4,b4,c4,d4) = U8.ord4 x
-      next (S s (J x2) N N)   = Yield x2 (S s N N N)
-      next (S s (J x2) x3 N)  = Yield x2 (S s x3 N N)
-      next (S s (J x2) x3 x4) = Yield x2 (S s x3 x4 N)
-      next _ = internalError "restreamUtf8"
+restreamUtf8 (Stream next0 s0 len) = Stream next (S s0 N N N) (len * 2)
+  where
+    {-# INLINE next #-}
+    next (S s N N N) = case next0 s of
+        Done       -> Done
+        Skip s'    -> Skip (S s' N N N)
+        Yield x s' -> U8.encodeChar
+            (\w1          -> Yield w1 (S s' N N N))
+            (\w1 w2       -> Yield w1 (S s' (J w2) N N))
+            (\w1 w2 w3    -> Yield w1 (S s' (J w2) (J w3) N))
+            (\w1 w2 w3 w4 -> Yield w1 (S s' (J w2) (J w3) (J w4)))
+            x
+    next (S s (J x2) N N)   = Yield x2 (S s N N N)
+    next (S s (J x2) x3 N)  = Yield x2 (S s x3 N N)
+    next (S s (J x2) x3 x4) = Yield x2 (S s x3 x4 N)
+    next _ = internalError "restreamUtf8"
 {-# INLINE restreamUtf8 #-}
 
 restreamUtf16BE :: Stream Char -> Stream Word8
