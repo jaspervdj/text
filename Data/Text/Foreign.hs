@@ -42,7 +42,7 @@ import Data.Word (Word8)
 import Foreign.Marshal.Alloc (allocaBytes)
 import Foreign.Ptr (Ptr, castPtr, plusPtr)
 import Foreign.ForeignPtr (ForeignPtr, mallocForeignPtrArray, withForeignPtr)
-import Foreign.Storable (peek, poke)
+import Foreign.Storable (peek)
 
 -- $interop
 --

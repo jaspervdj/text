@@ -83,7 +83,6 @@ reverseStream (Text arr off len) = Stream next (off + len - 1) (maxSize len)
         | otherwise =
             U8.reverseDecodeCharIndex (\c w -> Yield c (i - w)) idx i
       where
-        x1 = idx i
         idx = A.unsafeIndex arr
     {-# INLINE next #-}
 {-# INLINE [0] reverseStream #-}

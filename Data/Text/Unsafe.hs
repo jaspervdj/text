@@ -29,7 +29,6 @@ module Data.Text.Unsafe
 import Control.Exception (assert)
 #endif
 import Data.Text.Internal (Text(..))
-import GHC.ST (ST(..))
 import Data.Text.Unsafe.Base (inlineInterleaveST, inlinePerformIO)
 import qualified Data.Text.Array as A
 import qualified Data.Text.Encoding.Utf8 as U8

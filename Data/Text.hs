@@ -212,10 +212,8 @@ import Data.Text.Internal (Text(..), empty, firstf, safe, text, textP)
 import qualified Prelude as P
 import Data.Text.Unsafe (Iter(..), iter, iter_, lengthWord8, reverseIter,
                          unsafeHead, unsafeTail, dropWord8, takeWord8)
-import Data.Text.UnsafeChar (unsafeChr8)
 import qualified Data.Text.Util as U
 import qualified Data.Text.Encoding.Utf8 as U8
-import qualified Data.Text.Encoding.Utf16 as U16
 import Data.Text.Search (indices)
 #if defined(__HADDOCK__)
 import Data.ByteString (ByteString)
