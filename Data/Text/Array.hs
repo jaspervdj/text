@@ -62,20 +62,18 @@ if (_k_) < 0 || (_k_) >= (_len_) then error ("Data.Text.Array." ++ (_func_) ++ "
 
 #if defined(ASSERTS)
 import Control.Exception (assert)
+import GHC.Base (sizeofByteArray#, sizeofMutableByteArray#)
 #endif
 import Control.Monad.ST (unsafeIOToST)
 import Data.Bits ((.&.), xor)
 import Data.Text.Unsafe.Base (inlinePerformIO)
-import Data.Text.UnsafeShift (shiftL, shiftR)
+import Data.Text.UnsafeShift (shiftR)
 import Foreign.Ptr (Ptr)
 import Foreign.C.Types (CInt, CSize)
-import GHC.Base (ByteArray#, MutableByteArray#, Int(..),
-                 indexWord8Array#, indexWordArray#, newByteArray#,
-                 readWord8Array#, readWordArray#, sizeofByteArray#,
-                 sizeofMutableByteArray#, unsafeCoerce#,
-                 writeWord8Array#, writeWordArray#)
+import GHC.Base (ByteArray#, MutableByteArray#, Int(..), indexWord8Array#,
+                 newByteArray#, unsafeCoerce#, writeWord8Array#)
 import GHC.ST (ST(..), runST)
-import GHC.Word (Word8(..), Word(..))
+import GHC.Word (Word8(..))
 
 import Prelude hiding (length, read)
 
@@ -124,23 +122,6 @@ unsafeIndex arr i@(I# i#) =
     case indexWord8Array# (aBA arr) i# of r# -> (W8# r#)
 {-# INLINE unsafeIndex #-}
 
--- | Unchecked read of an immutable array.  May return garbage or
--- crash on an out-of-bounds access.
-unsafeIndexWord :: Array -> Int -> Word
-unsafeIndexWord arr i@(I# i#) =
-  CHECK_BOUNDS("unsafeIndexWord", length arr `div` wordFactor, i)
-    case indexWordArray# (aBA arr) i# of r# -> (W# r#)
-{-# INLINE unsafeIndexWord #-}
-
--- | Unchecked read of a mutable array.  May return garbage or
--- crash on an out-of-bounds access.
-unsafeRead :: MArray s -> Int -> ST s Word8
-unsafeRead marr i@(I# i#) = ST $ \s# ->
-  CHECK_BOUNDS("unsafeRead", length marr, i)
-    case readWord8Array# (maBA marr) i# s# of
-      (# s2#, r# #) -> (# s2#, W8# r# #)
-{-# INLINE unsafeRead #-}
-
 -- | Unchecked write of a mutable array.  May return garbage or crash
 -- on an out-of-bounds access.
 unsafeWrite :: MArray s -> Int -> Word8 -> ST s ()
@@ -172,15 +153,6 @@ run2 k = runST (do
                  (marr,b) <- k
                  arr <- unsafeFreeze marr
                  return (arr,b))
-
--- | The amount to divide or multiply by to switch between units of
--- 'Word8' and units of 'Word'.
-wordFactor :: Int
-wordFactor = SIZEOF_HSWORD
-
--- | Indicate whether an offset is word-aligned.
-wordAligned :: Int -> Bool
-wordAligned i = i .&. (wordFactor - 1) == 0
 
 -- | Copy some elements of a mutable array.
 copyM :: MArray s               -- ^ Destination
