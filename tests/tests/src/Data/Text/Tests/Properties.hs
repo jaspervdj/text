@@ -105,6 +105,12 @@ t_streamUtf16BE = (S.unstream . E.streamUtf16BE E.strictDecode . E.encodeUtf16BE
 t_streamUtf32LE = (S.unstream . E.streamUtf32LE E.strictDecode . E.encodeUtf32LE) `eq` id
 t_streamUtf32BE = (S.unstream . E.streamUtf32BE E.strictDecode . E.encodeUtf32BE) `eq` id
 
+t_restreamUtf8 = (E.decodeUtf8 . E.unstream . E.restreamUtf8 . S.stream) `eq` id
+t_restreamUtf16LE = (E.decodeUtf16LE . E.unstream . E.restreamUtf16LE . S.stream) `eq` id
+t_restreamUtf16BE = (E.decodeUtf16BE . E.unstream . E.restreamUtf16BE . S.stream) `eq` id
+t_restreamUtf32LE = (E.decodeUtf32LE . E.unstream . E.restreamUtf32LE . S.stream) `eq` id
+t_restreamUtf32BE = (E.decodeUtf32BE . E.unstream . E.restreamUtf32BE . S.stream) `eq` id
+
 s_Eq s            = (s==)    `eq` ((S.streamList s==) . S.streamList)
     where _types = s :: String
 sf_Eq p s =
@@ -748,6 +754,13 @@ tests =
         testProperty "t_streamUtf16BE" t_streamUtf16BE,
         testProperty "t_streamUtf32LE" t_streamUtf32LE,
         testProperty "t_streamUtf32BE" t_streamUtf32BE
+      ],
+      testGroup "restream" [
+        testProperty "t_restreamUtf8" t_restreamUtf8,
+        testProperty "t_restreamUtf16LE" t_restreamUtf16LE,
+        testProperty "t_restreamUtf16BE" t_restreamUtf16BE,
+        testProperty "t_restreamUtf32LE" t_restreamUtf32LE,
+        testProperty "t_restreamUtf32BE" t_restreamUtf32BE
       ]
     ],
 
