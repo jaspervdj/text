@@ -15,8 +15,14 @@ coverage/text-tests-stdio.tix:
 	mv text-tests-stdio.tix $@
 
 coverage/coverage.tix: coverage/text-tests.tix coverage/text-tests-stdio.tix
-	hpc combine --output=$@ \
+	hpc combine --union --output=$@ \
         --exclude=Main \
+        --exclude=Data.Text.Tests.Properties \
+        --exclude=Data.Text.Tests.QuickCheckUtils \
+        --exclude=Data.Text.Tests.Regressions \
+        --exclude=Data.Text.Tests.SlowFunctions \
+        --exclude=Data.Text.Tests.Utils \
+        --exclude=Data.Text.Tests.Validate \
         coverage/text-tests.tix \
         coverage/text-tests-stdio.tix
 
