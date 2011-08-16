@@ -305,11 +305,12 @@ isSingleton (Stream next s0 _len) = loop 0 s0
 -- to each element of @xs@.
 map :: (Char -> Char) -> Stream Char -> Stream Char
 map f (Stream next0 s0 len) = Stream next s0 len
-    where
-      next !s = case next0 s of
-                  Done       -> Done
-                  Skip s'    -> Skip s'
-                  Yield x s' -> Yield (f x) s'
+  where
+    next !s = case next0 s of
+        Done       -> Done
+        Skip s'    -> Skip s'
+        Yield x s' -> Yield (f x) s'
+    {-# INLINE [1] next #-}
 {-# INLINE [0] map #-}
 
 {-#
