@@ -43,9 +43,11 @@ stream text = Stream next (text :*: 0) unknownSize
   where
     next (Empty :*: _) = Done
     next (txt@(Chunk t@(I.Text _ _ len) ts) :*: i)
-        | i >= len  = next (ts :*: 0)
+        | i >= len  = Skip (ts :*: 0)
         | otherwise = Yield c (txt :*: i+d)
-        where Iter c d = iter t i
+      where
+        Iter c d = iter t i
+    {-# INLINE [1] next #-}
 {-# INLINE [0] stream #-}
 
 -- | /O(n)/ Convert a 'Stream Char' into a 'Text', using the given
