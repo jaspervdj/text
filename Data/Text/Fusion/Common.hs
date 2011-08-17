@@ -111,22 +111,27 @@ import Data.Text.Fusion.Size
 
 singleton :: Char -> Stream Char
 singleton c = Stream next False 1
-    where next False = Yield c True
-          next True  = Done
-{-# INLINE singleton #-}
+  where
+    next False = Yield c True
+    next True  = Done
+    {-# INLINE [1] next #-}
+{-# INLINE [0] singleton #-}
 
 streamList :: [a] -> Stream a
-{-# INLINE [0] streamList #-}
 streamList s  = Stream next s unknownSize
-    where next []       = Done
-          next (x:xs)   = Yield x xs
+  where
+    next []     = Done
+    next (x:xs) = Yield x xs
+    {-# INLINE [1] next #-}
+{-# INLINE [0] streamList #-}
 
 unstreamList :: Stream a -> [a]
 unstreamList (Stream next s0 _len) = unfold s0
-    where unfold !s = case next s of
-                        Done       -> []
-                        Skip s'    -> unfold s'
-                        Yield x s' -> x : unfold s'
+  where
+    unfold !s = case next s of
+        Done       -> []
+        Skip s'    -> unfold s'
+        Yield x s' -> x : unfold s'
 {-# INLINE [0] unstreamList #-}
 
 {-# RULES "STREAM streamList/unstreamList fusion" forall s. streamList (unstreamList s) = s #-}
@@ -140,12 +145,13 @@ data C s = C0 !s
 -- | /O(n)/ Adds a character to the front of a Stream Char.
 cons :: Char -> Stream Char -> Stream Char
 cons w (Stream next0 s0 len) = Stream next (C1 s0) (len+1)
-    where
-      next (C1 s) = Yield w (C0 s)
-      next (C0 s) = case next0 s of
-                          Done -> Done
-                          Skip s' -> Skip (C0 s')
-                          Yield x s' -> Yield x (C0 s')
+  where
+    next (C1 s) = Yield w (C0 s)
+    next (C0 s) = case next0 s of
+        Done -> Done
+        Skip s' -> Skip (C0 s')
+        Yield x s' -> Yield x (C0 s')
+    {-# INLINE [1] next #-}
 {-# INLINE [0] cons #-}
 
 -- | /O(n)/ Adds a character to the end of a stream.
@@ -153,10 +159,11 @@ snoc :: Stream Char -> Char -> Stream Char
 snoc (Stream next0 xs0 len) w = Stream next (J xs0) (len+1)
   where
     next (J xs) = case next0 xs of
-      Done        -> Yield w N
-      Skip xs'    -> Skip    (J xs')
-      Yield x xs' -> Yield x (J xs')
+        Done        -> Yield w N
+        Skip xs'    -> Skip    (J xs')
+        Yield x xs' -> Yield x (J xs')
     next N = Done
+    {-# INLINE [1] next #-}
 {-# INLINE [0] snoc #-}
 
 data E l r = L !l
@@ -166,67 +173,69 @@ data E l r = L !l
 append :: Stream Char -> Stream Char -> Stream Char
 append (Stream next0 s01 len1) (Stream next1 s02 len2) =
     Stream next (L s01) (len1 + len2)
-    where
-      next (L s1) = case next0 s1 of
-                         Done        -> Skip    (R s02)
-                         Skip s1'    -> Skip    (L s1')
-                         Yield x s1' -> Yield x (L s1')
-      next (R s2) = case next1 s2 of
-                          Done        -> Done
-                          Skip s2'    -> Skip    (R s2')
-                          Yield x s2' -> Yield x (R s2')
+  where
+    next (L s1) = case next0 s1 of
+        Done        -> Skip    (R s02)
+        Skip s1'    -> Skip    (L s1')
+        Yield x s1' -> Yield x (L s1')
+    next (R s2) = case next1 s2 of
+        Done        -> Done
+        Skip s2'    -> Skip    (R s2')
+        Yield x s2' -> Yield x (R s2')
+    {-# INLINE [1] next #-}
 {-# INLINE [0] append #-}
 
 -- | /O(1)/ Returns the first character of a Text, which must be non-empty.
 -- Subject to array fusion.
 head :: Stream Char -> Char
 head (Stream next s0 _len) = loop_head s0
-    where
-      loop_head !s = case next s of
-                      Yield x _ -> x
-                      Skip s'   -> loop_head s'
-                      Done      -> streamError "head" "Empty stream"
+  where
+    loop_head !s = case next s of
+        Yield x _ -> x
+        Skip s'   -> loop_head s'
+        Done      -> streamError "head" "Empty stream"
 {-# INLINE [0] head #-}
 
 -- | /O(1)/ Returns the first character and remainder of a 'Stream
 -- Char', or 'Nothing' if empty.  Subject to array fusion.
 uncons :: Stream Char -> Maybe (Char, Stream Char)
 uncons (Stream next s0 len) = loop_uncons s0
-    where
-      loop_uncons !s = case next s of
-                         Yield x s1 -> Just (x, Stream next s1 (len-1))
-                         Skip s'    -> loop_uncons s'
-                         Done       -> Nothing
+  where
+    loop_uncons !s = case next s of
+        Yield x s1 -> Just (x, Stream next s1 (len-1))
+        Skip s'    -> loop_uncons s'
+        Done       -> Nothing
 {-# INLINE [0] uncons #-}
 
 -- | /O(n)/ Returns the last character of a 'Stream Char', which must
 -- be non-empty.
 last :: Stream Char -> Char
 last (Stream next s0 _len) = loop0_last s0
-    where
-      loop0_last !s = case next s of
-                        Done       -> emptyError "last"
-                        Skip s'    -> loop0_last  s'
-                        Yield x s' -> loop_last x s'
-      loop_last !x !s = case next s of
-                         Done        -> x
-                         Skip s'     -> loop_last x  s'
-                         Yield x' s' -> loop_last x' s'
-{-# INLINE[0] last #-}
+  where
+    loop0_last !s = case next s of
+        Done       -> emptyError "last"
+        Skip s'    -> loop0_last  s'
+        Yield x s' -> loop_last x s'
+    loop_last !x !s = case next s of
+        Done        -> x
+        Skip s'     -> loop_last x  s'
+        Yield x' s' -> loop_last x' s'
+{-# INLINE [0] last #-}
 
 -- | /O(1)/ Returns all characters after the head of a Stream Char, which must
 -- be non-empty.
 tail :: Stream Char -> Stream Char
 tail (Stream next0 s0 len) = Stream next (C0 s0) (len-1)
-    where
-      next (C0 s) = case next0 s of
-                      Done       -> emptyError "tail"
-                      Skip s'    -> Skip (C0 s')
-                      Yield _ s' -> Skip (C1 s')
-      next (C1 s) = case next0 s of
-                      Done       -> Done
-                      Skip s'    -> Skip    (C1 s')
-                      Yield x s' -> Yield x (C1 s')
+  where
+    next (C0 s) = case next0 s of
+        Done       -> emptyError "tail"
+        Skip s'    -> Skip (C0 s')
+        Yield _ s' -> Skip (C1 s')
+    next (C1 s) = case next0 s of
+        Done       -> Done
+        Skip s'    -> Skip    (C1 s')
+        Yield x s' -> Yield x (C1 s')
+    {-# INLINE [1] next #-}
 {-# INLINE [0] tail #-}
 
 data Init s = Init0 !s
@@ -236,36 +245,37 @@ data Init s = Init0 !s
 -- must be non-empty.
 init :: Stream Char -> Stream Char
 init (Stream next0 s0 len) = Stream next (Init0 s0) (len-1)
-    where
-      next (Init0 s) = case next0 s of
-                         Done       -> emptyError "init"
-                         Skip s'    -> Skip (Init0 s')
-                         Yield x s' -> Skip (Init1 x s')
-      next (Init1 x s)  = case next0 s of
-                            Done        -> Done
-                            Skip s'     -> Skip    (Init1 x s')
-                            Yield x' s' -> Yield x (Init1 x' s')
+  where
+    next (Init0 s) = case next0 s of
+        Done       -> emptyError "init"
+        Skip s'    -> Skip (Init0 s')
+        Yield x s' -> Skip (Init1 x s')
+    next (Init1 x s)  = case next0 s of
+        Done        -> Done
+        Skip s'     -> Skip    (Init1 x s')
+        Yield x' s' -> Yield x (Init1 x' s')
+    {-# INLINE [1] next #-}
 {-# INLINE [0] init #-}
 
 -- | /O(1)/ Tests whether a Stream Char is empty or not.
 null :: Stream Char -> Bool
 null (Stream next s0 _len) = loop_null s0
-    where
-      loop_null !s = case next s of
-                       Done      -> True
-                       Yield _ _ -> False
-                       Skip s'   -> loop_null s'
-{-# INLINE[0] null #-}
+  where
+    loop_null !s = case next s of
+        Done      -> True
+        Yield _ _ -> False
+        Skip s'   -> loop_null s'
+{-# INLINE [0] null #-}
 
 -- | /O(n)/ Returns the number of characters in a string.
 lengthI :: Integral a => Stream Char -> a
 lengthI (Stream next s0 _len) = loop_length 0 s0
-    where
-      loop_length !z s  = case next s of
-                           Done       -> z
-                           Skip    s' -> loop_length z s'
-                           Yield _ s' -> loop_length (z + 1) s'
-{-# INLINE[0] lengthI #-}
+  where
+    loop_length !z s  = case next s of
+        Done       -> z
+        Skip    s' -> loop_length z s'
+        Yield _ s' -> loop_length (z + 1) s'
+{-# INLINE [0] lengthI #-}
 
 -- | /O(n)/ Compares the count of characters in a string to a number.
 -- Subject to fusion.
@@ -274,28 +284,27 @@ lengthI (Stream next s0 _len) = loop_length 0 s0
 -- of 'lengthI', but can short circuit if the count of characters is
 -- greater than the number, and hence be more efficient.
 compareLengthI :: Integral a => Stream Char -> a -> Ordering
-compareLengthI (Stream next s0 len) n = 
-    case exactly len of
-      Nothing -> loop_cmp 0 s0
-      Just i  -> compare (fromIntegral i) n
-    where
-      loop_cmp !z s  = case next s of
-                         Done       -> compare z n
-                         Skip    s' -> loop_cmp z s'
-                         Yield _ s' | z > n     -> GT
-                                    | otherwise -> loop_cmp (z + 1) s'
-{-# INLINE[0] compareLengthI #-}
+compareLengthI (Stream next s0 len) n = case exactly len of
+    Nothing -> loop_cmp 0 s0
+    Just i  -> compare (fromIntegral i) n
+  where
+    loop_cmp !z s  = case next s of
+        Done       -> compare z n
+        Skip    s' -> loop_cmp z s'
+        Yield _ s' | z > n     -> GT
+                  | otherwise -> loop_cmp (z + 1) s'
+{-# INLINE [0] compareLengthI #-}
 
 -- | /O(n)/ Indicate whether a string contains exactly one element.
 isSingleton :: Stream Char -> Bool
 isSingleton (Stream next s0 _len) = loop 0 s0
-    where
-      loop !z s  = case next s of
-                     Done            -> z == (1::Int)
-                     Skip    s'      -> loop z s'
-                     Yield _ s'
-                         | z >= 1    -> False
-                         | otherwise -> loop (z+1) s'
+  where
+    loop !z s  = case next s of
+        Done            -> z == (1::Int)
+        Skip    s'      -> loop z s'
+        Yield _ s'
+            | z >= 1    -> False
+            | otherwise -> loop (z+1) s'
 {-# INLINE[0] isSingleton #-}
 
 -- ----------------------------------------------------------------------------
@@ -326,16 +335,17 @@ data I s = I1 !s
 -- characters of a 'Stream Char'.
 intersperse :: Char -> Stream Char -> Stream Char
 intersperse c (Stream next0 s0 len) = Stream next (I1 s0) len
-    where
-      next (I1 s) = case next0 s of
+  where
+    next (I1 s) = case next0 s of
         Done       -> Done
         Skip s'    -> Skip (I1 s')
         Yield x s' -> Skip (I2 s' x)
-      next (I2 s x)  = Yield x (I3 s)
-      next (I3 s) = case next0 s of
+    next (I2 s x)  = Yield x (I3 s)
+    next (I3 s) = case next0 s of
         Done       -> Done
         Skip s'    -> Skip    (I3 s')
         Yield x s' -> Yield c (I2 s' x)
+    {-# INLINE [1] next #-}
 {-# INLINE [0] intersperse #-}
 
 -- ----------------------------------------------------------------------------
@@ -354,12 +364,13 @@ caseConvert :: (forall s. Char -> s -> Step (CC s) Char)
             -> Stream Char -> Stream Char
 caseConvert remap (Stream next0 s0 len) = Stream next (CC s0 '\0' '\0') len
   where
-    next (CC s '\0' _) =
-        case next0 s of
-          Done       -> Done
-          Skip s'    -> Skip (CC s' '\0' '\0')
-          Yield c s' -> remap c s'
+    next (CC s '\0' _) = case next0 s of
+        Done       -> Done
+        Skip s'    -> Skip (CC s' '\0' '\0')
+        Yield c s' -> remap c s'
     next (CC s a b)  =  Yield a (CC s b '\0')
+    {-# INLINE [1] next #-}
+{-# INLINE caseConvert #-}
 
 -- | /O(n)/ Convert a string to folded case.  This function is mainly
 -- useful for performing caseless (or case insensitive) string
@@ -400,15 +411,14 @@ justifyLeftI :: Integral a => a -> Char -> Stream Char -> Stream Char
 justifyLeftI k c (Stream next0 s0 len) =
     Stream next (s0 :*: S1 :*: 0) (larger (fromIntegral k) len)
   where
-    next (s :*: S1 :*: n) =
-        case next0 s of
-          Done       -> next (s :*: S2 :*: n)
-          Skip s'    -> Skip (s' :*: S1 :*: n)
-          Yield x s' -> Yield x (s' :*: S1 :*: n+1)
+    next (s :*: S1 :*: n) = case next0 s of
+        Done       -> next (s :*: S2 :*: n)
+        Skip s'    -> Skip (s' :*: S1 :*: n)
+        Yield x s' -> Yield x (s' :*: S1 :*: n+1)
     next (s :*: S2 :*: n)
         | n < k       = Yield c (s :*: S2 :*: n+1)
         | otherwise   = Done
-    {-# INLINE next #-}
+    {-# INLINE [1] next #-}
 {-# INLINE [0] justifyLeftI #-}
 
 -- ----------------------------------------------------------------------------
@@ -419,50 +429,50 @@ justifyLeftI k c (Stream next0 s0 len) =
 -- binary operator, from left to right.
 foldl :: (b -> Char -> b) -> b -> Stream Char -> b
 foldl f z0 (Stream next s0 _len) = loop_foldl z0 s0
-    where
-      loop_foldl z !s = case next s of
-                          Done -> z
-                          Skip s' -> loop_foldl z s'
-                          Yield x s' -> loop_foldl (f z x) s'
+  where
+    loop_foldl z !s = case next s of
+        Done       -> z
+        Skip s'    -> loop_foldl z s'
+        Yield x s' -> loop_foldl (f z x) s'
 {-# INLINE [0] foldl #-}
 
 -- | A strict version of foldl.
 foldl' :: (b -> Char -> b) -> b -> Stream Char -> b
 foldl' f z0 (Stream next s0 _len) = loop_foldl' z0 s0
-    where
-      loop_foldl' !z !s = case next s of
-                            Done -> z
-                            Skip s' -> loop_foldl' z s'
-                            Yield x s' -> loop_foldl' (f z x) s'
+  where
+    loop_foldl' !z !s = case next s of
+        Done       -> z
+        Skip s'    -> loop_foldl' z s'
+        Yield x s' -> loop_foldl' (f z x) s'
 {-# INLINE [0] foldl' #-}
 
 -- | foldl1 is a variant of foldl that has no starting value argument,
 -- and thus must be applied to non-empty Streams.
 foldl1 :: (Char -> Char -> Char) -> Stream Char -> Char
 foldl1 f (Stream next s0 _len) = loop0_foldl1 s0
-    where
-      loop0_foldl1 !s = case next s of
-                          Skip s' -> loop0_foldl1 s'
-                          Yield x s' -> loop_foldl1 x s'
-                          Done -> emptyError "foldl1"
-      loop_foldl1 z !s = case next s of
-                           Done -> z
-                           Skip s' -> loop_foldl1 z s'
-                           Yield x s' -> loop_foldl1 (f z x) s'
+  where
+    loop0_foldl1 !s = case next s of
+        Skip s'    -> loop0_foldl1 s'
+        Yield x s' -> loop_foldl1 x s'
+        Done       -> emptyError "foldl1"
+    loop_foldl1 z !s = case next s of
+        Done       -> z
+        Skip s'    -> loop_foldl1 z s'
+        Yield x s' -> loop_foldl1 (f z x) s'
 {-# INLINE [0] foldl1 #-}
 
 -- | A strict version of foldl1.
 foldl1' :: (Char -> Char -> Char) -> Stream Char -> Char
 foldl1' f (Stream next s0 _len) = loop0_foldl1' s0
-    where
-      loop0_foldl1' !s = case next s of
-                           Skip s' -> loop0_foldl1' s'
-                           Yield x s' -> loop_foldl1' x s'
-                           Done -> emptyError "foldl1"
-      loop_foldl1' !z !s = case next s of
-                             Done -> z
-                             Skip s' -> loop_foldl1' z s'
-                             Yield x s' -> loop_foldl1' (f z x) s'
+  where
+    loop0_foldl1' !s = case next s of
+        Skip s'    -> loop0_foldl1' s'
+        Yield x s' -> loop_foldl1' x s'
+        Done       -> emptyError "foldl1"
+    loop_foldl1' !z !s = case next s of
+        Done       -> z
+        Skip s'    -> loop_foldl1' z s'
+        Yield x s' -> loop_foldl1' (f z x) s'
 {-# INLINE [0] foldl1' #-}
 
 -- | 'foldr', applied to a binary operator, a starting value (typically the
@@ -470,11 +480,11 @@ foldl1' f (Stream next s0 _len) = loop0_foldl1' s0
 -- binary operator, from right to left.
 foldr :: (Char -> b -> b) -> b -> Stream Char -> b
 foldr f z (Stream next s0 _len) = loop_foldr s0
-    where
-      loop_foldr !s = case next s of
-                        Done -> z
-                        Skip s' -> loop_foldr s'
-                        Yield x s' -> f x (loop_foldr s')
+  where
+    loop_foldr !s = case next s of
+        Done       -> z
+        Skip s'    -> loop_foldr s'
+        Yield x s' -> f x (loop_foldr s')
 {-# INLINE [0] foldr #-}
 
 -- | foldr1 is a variant of 'foldr' that has no starting value argument,
@@ -484,14 +494,13 @@ foldr1 :: (Char -> Char -> Char) -> Stream Char -> Char
 foldr1 f (Stream next s0 _len) = loop0_foldr1 s0
   where
     loop0_foldr1 !s = case next s of
-      Done       -> emptyError "foldr1"
-      Skip    s' -> loop0_foldr1  s'
-      Yield x s' -> loop_foldr1 x s'
-
+        Done       -> emptyError "foldr1"
+        Skip    s' -> loop0_foldr1  s'
+        Yield x s' -> loop_foldr1 x s'
     loop_foldr1 x !s = case next s of
-      Done        -> x
-      Skip     s' -> loop_foldr1 x s'
-      Yield x' s' -> f x (loop_foldr1 x' s')
+        Done        -> x
+        Skip     s' -> loop_foldr1 x s'
+        Yield x' s' -> f x (loop_foldr1 x' s')
 {-# INLINE [0] foldr1 #-}
 
 intercalate :: Stream Char -> [Stream Char] -> Stream Char
@@ -516,73 +525,73 @@ concatMap f = foldr (append . f) empty
 -- @xs@ satisifes the predicate @p@.
 any :: (Char -> Bool) -> Stream Char -> Bool
 any p (Stream next0 s0 _len) = loop_any s0
-    where
-      loop_any !s = case next0 s of
-                      Done                   -> False
-                      Skip s'                -> loop_any s'
-                      Yield x s' | p x       -> True
-                                 | otherwise -> loop_any s'
+  where
+    loop_any !s = case next0 s of
+        Done                   -> False
+        Skip s'                -> loop_any s'
+        Yield x s' | p x       -> True
+                   | otherwise -> loop_any s'
 {-# INLINE [0] any #-}
 
 -- | /O(n)/ all @p @xs determines if all characters in the 'Text'
 -- @xs@ satisify the predicate @p@.
 all :: (Char -> Bool) -> Stream Char -> Bool
 all p (Stream next0 s0 _len) = loop_all s0
-    where
-      loop_all !s = case next0 s of
-                      Done                   -> True
-                      Skip s'                -> loop_all s'
-                      Yield x s' | p x       -> loop_all s'
-                                 | otherwise -> False
+  where
+    loop_all !s = case next0 s of
+        Done                   -> True
+        Skip s'                -> loop_all s'
+        Yield x s' | p x       -> loop_all s'
+                   | otherwise -> False
 {-# INLINE [0] all #-}
 
 -- | /O(n)/ maximum returns the maximum value from a stream, which must be
 -- non-empty.
 maximum :: Stream Char -> Char
 maximum (Stream next0 s0 _len) = loop0_maximum s0
-    where
-      loop0_maximum !s   = case next0 s of
-                             Done       -> emptyError "maximum"
-                             Skip s'    -> loop0_maximum s'
-                             Yield x s' -> loop_maximum x s'
-      loop_maximum !z !s = case next0 s of
-                             Done            -> z
-                             Skip s'         -> loop_maximum z s'
-                             Yield x s'
-                                 | x > z     -> loop_maximum x s'
-                                 | otherwise -> loop_maximum z s'
+  where
+    loop0_maximum !s = case next0 s of
+        Done       -> emptyError "maximum"
+        Skip s'    -> loop0_maximum s'
+        Yield x s' -> loop_maximum x s'
+    loop_maximum !z !s = case next0 s of
+        Done            -> z
+        Skip s'         -> loop_maximum z s'
+        Yield x s'
+            | x > z     -> loop_maximum x s'
+            | otherwise -> loop_maximum z s'
 {-# INLINE [0] maximum #-}
 
 -- | /O(n)/ minimum returns the minimum value from a 'Text', which must be
 -- non-empty.
 minimum :: Stream Char -> Char
 minimum (Stream next0 s0 _len) = loop0_minimum s0
-    where
-      loop0_minimum !s   = case next0 s of
-                             Done       -> emptyError "minimum"
-                             Skip s'    -> loop0_minimum s'
-                             Yield x s' -> loop_minimum x s'
-      loop_minimum !z !s = case next0 s of
-                             Done            -> z
-                             Skip s'         -> loop_minimum z s'
-                             Yield x s'
-                                 | x < z     -> loop_minimum x s'
-                                 | otherwise -> loop_minimum z s'
+  where
+    loop0_minimum !s = case next0 s of
+        Done       -> emptyError "minimum"
+        Skip s'    -> loop0_minimum s'
+        Yield x s' -> loop_minimum x s'
+    loop_minimum !z !s = case next0 s of
+        Done            -> z
+        Skip s'         -> loop_minimum z s'
+        Yield x s'
+            | x < z     -> loop_minimum x s'
+            | otherwise -> loop_minimum z s'
 {-# INLINE [0] minimum #-}
 
 -- -----------------------------------------------------------------------------
 -- * Building streams
 
 scanl :: (Char -> Char -> Char) -> Char -> Stream Char -> Stream Char
-scanl f z0 (Stream next0 s0 len) = Stream next (S1 :*: z0 :*: s0) (len+1) -- HINT maybe too low
+scanl f z0 (Stream next0 s0 len) =
+    Stream next (S1 :*: z0 :*: s0) (len+1) -- HINT maybe too low
   where
-    {-# INLINE next #-}
     next (S1 :*: z :*: s) = Yield z (S2 :*: z :*: s)
     next (S2 :*: z :*: s) = case next0 s of
-                              Yield x s' -> let !x' = f z x
-                                            in Yield x' (S2 :*: x' :*: s')
-                              Skip s'    -> Skip (S2 :*: z :*: s')
-                              Done       -> Done
+        Yield x s' -> let !x' = f z x in Yield x' (S2 :*: x' :*: s')
+        Skip s'    -> Skip (S2 :*: z :*: s')
+        Done       -> Done
+    {-# INLINE [1] next #-}
 {-# INLINE [0] scanl #-}
 
 -- -----------------------------------------------------------------------------
@@ -618,6 +627,7 @@ replicateCharI n c
   where
     next i | i >= n    = Done
            | otherwise = Yield c (i + 1)
+    {-# INLINE [1] next #-}
 {-# INLINE [0] replicateCharI #-}
 
 data RI s = RI !s {-# UNPACK #-} !Int64
@@ -629,9 +639,10 @@ replicateI n (Stream next0 s0 len) =
     next (RI s k)
         | k >= n = Done
         | otherwise = case next0 s of
-                        Done       -> Skip    (RI s0 (k+1))
-                        Skip s'    -> Skip    (RI s' k)
-                        Yield x s' -> Yield x (RI s' k)
+            Done       -> Skip    (RI s0 (k+1))
+            Skip s'    -> Skip    (RI s' k)
+            Yield x s' -> Yield x (RI s' k)
+    {-# INLINE [1] next #-}
 {-# INLINE [0] replicateI #-}
 
 -- | /O(n)/, where @n@ is the length of the result. The unfoldr function
@@ -642,11 +653,11 @@ replicateI n (Stream next0 s0 len) =
 -- the seed value for further production.
 unfoldr :: (a -> Maybe (Char,a)) -> a -> Stream Char
 unfoldr f s0 = Stream next s0 1 -- HINT maybe too low
-    where
-      {-# INLINE next #-}
-      next !s = case f s of
-                 Nothing      -> Done
-                 Just (w, s') -> Yield w s'
+  where
+    next !s = case f s of
+        Nothing      -> Done
+        Just (w, s') -> Yield w s'
+    {-# INLINE [1] next #-}
 {-# INLINE [0] unfoldr #-}
 
 -- | /O(n)/ Like 'unfoldr', 'unfoldrNI' builds a stream from a seed
@@ -654,14 +665,16 @@ unfoldr f s0 = Stream next s0 1 -- HINT maybe too low
 -- first argument to 'unfoldrNI'. This function is more efficient than
 -- 'unfoldr' when the length of the result is known.
 unfoldrNI :: Integral a => a -> (b -> Maybe (Char,b)) -> b -> Stream Char
-unfoldrNI n f s0 | n <  0    = empty
-                 | otherwise = Stream next (0 :*: s0) (fromIntegral (n*2)) -- HINT maybe too high
-    where
-      {-# INLINE next #-}
-      next (z :*: s) = case f s of
-          Nothing                  -> Done
-          Just (w, s') | z >= n    -> Done
-                       | otherwise -> Yield w ((z + 1) :*: s')
+unfoldrNI n f s0
+    | n <  0    = empty
+    -- HINT maybe too high:
+    | otherwise = Stream next (0 :*: s0) (fromIntegral (n * 2))
+  where
+    next (z :*: s) = case f s of
+        Nothing                  -> Done
+        Just (w, s') | z >= n    -> Done
+                     | otherwise -> Yield w ((z + 1) :*: s')
+    {-# INLINE [1] next #-}
 {-# INLINE unfoldrNI #-}
 
 -------------------------------------------------------------------------------
@@ -673,13 +686,14 @@ unfoldrNI n f s0 | n <  0    = empty
 take :: Integral a => a -> Stream Char -> Stream Char
 take n0 (Stream next0 s0 len) =
     Stream next (n0 :*: s0) (smaller len (fromIntegral (max 0 n0)))
-    where
-      {-# INLINE next #-}
-      next (n :*: s) | n <= 0    = Done
-                     | otherwise = case next0 s of
-                                     Done -> Done
-                                     Skip s' -> Skip (n :*: s')
-                                     Yield x s' -> Yield x ((n-1) :*: s')
+  where
+    next (n :*: s)
+        | n <= 0    = Done
+        | otherwise = case next0 s of
+            Done       -> Done
+            Skip s'    -> Skip (n :*: s')
+            Yield x s' -> Yield x ((n-1) :*: s')
+    {-# INLINE [1] next #-}
 {-# INLINE [0] take #-}
 
 -- | /O(n)/ drop n, applied to a stream, returns the suffix of the
@@ -689,60 +703,60 @@ drop :: Integral a => a -> Stream Char -> Stream Char
 drop n0 (Stream next0 s0 len) =
     Stream next (J n0 :*: s0) (len - fromIntegral (max 0 n0))
   where
-    {-# INLINE next #-}
     next (J n :*: s)
-      | n <= 0    = Skip (N :*: s)
-      | otherwise = case next0 s of
-          Done       -> Done
-          Skip    s' -> Skip (J n    :*: s')
-          Yield _ s' -> Skip (J (n-1) :*: s')
+        | n <= 0    = Skip (N :*: s)
+        | otherwise = case next0 s of
+            Done       -> Done
+            Skip    s' -> Skip (J n    :*: s')
+            Yield _ s' -> Skip (J (n-1) :*: s')
     next (N :*: s) = case next0 s of
-      Done       -> Done
-      Skip    s' -> Skip    (N :*: s')
-      Yield x s' -> Yield x (N :*: s')
+        Done       -> Done
+        Skip    s' -> Skip    (N :*: s')
+        Yield x s' -> Yield x (N :*: s')
+    {-# INLINE [1] next #-}
 {-# INLINE [0] drop #-}
 
 -- | takeWhile, applied to a predicate @p@ and a stream, returns the
 -- longest prefix (possibly empty) of elements that satisfy p.
 takeWhile :: (Char -> Bool) -> Stream Char -> Stream Char
 takeWhile p (Stream next0 s0 len) = Stream next s0 len -- HINT maybe too high
-    where
-      {-# INLINE next #-}
-      next !s = case next0 s of
-                  Done    -> Done
-                  Skip s' -> Skip s'
-                  Yield x s' | p x       -> Yield x s'
-                             | otherwise -> Done
+  where
+    next !s = case next0 s of
+        Done                   -> Done
+        Skip s'                -> Skip s'
+        Yield x s' | p x       -> Yield x s'
+                   | otherwise -> Done
+    {-# INLINE [1] next #-}
 {-# INLINE [0] takeWhile #-}
 
 -- | dropWhile @p @xs returns the suffix remaining after takeWhile @p @xs.
 dropWhile :: (Char -> Bool) -> Stream Char -> Stream Char
 dropWhile p (Stream next0 s0 len) = Stream next (S1 :*: s0) len -- HINT maybe too high
-    where
-    {-# INLINE next #-}
-    next (S1 :*: s)  = case next0 s of
-      Done                   -> Done
-      Skip    s'             -> Skip    (S1 :*: s')
-      Yield x s' | p x       -> Skip    (S1 :*: s')
-                 | otherwise -> Yield x (S2 :*: s')
+  where
+    next (S1 :*: s) = case next0 s of
+        Done                   -> Done
+        Skip    s'             -> Skip    (S1 :*: s')
+        Yield x s' | p x       -> Skip    (S1 :*: s')
+                   | otherwise -> Yield x (S2 :*: s')
     next (S2 :*: s) = case next0 s of
-      Done       -> Done
-      Skip    s' -> Skip    (S2 :*: s')
-      Yield x s' -> Yield x (S2 :*: s')
+        Done       -> Done
+        Skip    s' -> Skip    (S2 :*: s')
+        Yield x s' -> Yield x (S2 :*: s')
+    {-# INLINE [1] next #-}
 {-# INLINE [0] dropWhile #-}
 
 -- | /O(n)/ The 'isPrefixOf' function takes two 'Stream's and returns
 -- 'True' iff the first is a prefix of the second.
 isPrefixOf :: (Eq a) => Stream a -> Stream a -> Bool
 isPrefixOf (Stream next1 s1 _) (Stream next2 s2 _) = loop (next1 s1) (next2 s2)
-    where
-      loop Done      _ = True
-      loop _    Done = False
-      loop (Skip s1')     (Skip s2')     = loop (next1 s1') (next2 s2')
-      loop (Skip s1')     x2             = loop (next1 s1') x2
-      loop x1             (Skip s2')     = loop x1          (next2 s2')
-      loop (Yield x1 s1') (Yield x2 s2') = x1 == x2 &&
-                                           loop (next1 s1') (next2 s2')
+  where
+    loop Done      _ = True
+    loop _    Done = False
+    loop (Skip s1')     (Skip s2')     = loop (next1 s1') (next2 s2')
+    loop (Skip s1')     x2             = loop (next1 s1') x2
+    loop x1             (Skip s2')     = loop x1          (next2 s2')
+    loop (Yield x1 s1') (Yield x2 s2') = x1 == x2 &&
+                                         loop (next1 s1') (next2 s2')
 {-# INLINE [0] isPrefixOf #-}
 {-# SPECIALISE isPrefixOf :: Stream Char -> Stream Char -> Bool #-}
 
@@ -755,12 +769,12 @@ isPrefixOf (Stream next1 s1 _) (Stream next2 s2 _) = loop (next1 s1) (next2 s2)
 -- | /O(n)/ elem is the stream membership predicate.
 elem :: Char -> Stream Char -> Bool
 elem w (Stream next s0 _len) = loop_elem s0
-    where
-      loop_elem !s = case next s of
-                       Done -> False
-                       Skip s' -> loop_elem s'
-                       Yield x s' | x == w -> True
-                                  | otherwise -> loop_elem s'
+  where
+    loop_elem !s = case next s of
+        Done -> False
+        Skip s' -> loop_elem s'
+        Yield x s' | x == w -> True
+                   | otherwise -> loop_elem s'
 {-# INLINE [0] elem #-}
 
 -------------------------------------------------------------------------------
@@ -772,25 +786,25 @@ elem w (Stream next s0 _len) = loop_elem s0
 
 findBy :: (Char -> Bool) -> Stream Char -> Maybe Char
 findBy p (Stream next s0 _len) = loop_find s0
-    where
-      loop_find !s = case next s of
-                       Done -> Nothing
-                       Skip s' -> loop_find s'
-                       Yield x s' | p x -> Just x
-                                  | otherwise -> loop_find s'
+  where
+    loop_find !s = case next s of
+        Done                   -> Nothing
+        Skip s'                -> loop_find s'
+        Yield x s' | p x       -> Just x
+                   | otherwise -> loop_find s'
 {-# INLINE [0] findBy #-}
 
 -- | /O(n)/ Stream index (subscript) operator, starting from 0.
 indexI :: Integral a => Stream Char -> a -> Char
 indexI (Stream next s0 _len) n0
-  | n0 < 0    = streamError "index" "Negative index"
-  | otherwise = loop_index n0 s0
+    | n0 < 0    = streamError "index" "Negative index"
+    | otherwise = loop_index n0 s0
   where
     loop_index !n !s = case next s of
-      Done                   -> streamError "index" "Index too large"
-      Skip    s'             -> loop_index  n    s'
-      Yield x s' | n == 0    -> x
-                 | otherwise -> loop_index (n-1) s'
+        Done                   -> streamError "index" "Index too large"
+        Skip s'                -> loop_index  n    s'
+        Yield x s' | n == 0    -> x
+                   | otherwise -> loop_index (n-1) s'
 {-# INLINE [0] indexI #-}
 
 -- | /O(n)/ 'filter', applied to a predicate and a stream,
@@ -817,8 +831,8 @@ filter p (Stream next0 s0 len) = Stream next s0 len -- HINT maybe too high
 -- predicate.
 findIndexI :: Integral a => (Char -> Bool) -> Stream Char -> Maybe a
 findIndexI p s = case findIndicesI p s of
-                  (i:_) -> Just i
-                  _     -> Nothing
+    (i : _) -> Just i
+    _       -> Nothing
 {-# INLINE [0] findIndexI #-}
 
 -- | The 'findIndicesI' function takes a predicate and a stream and
@@ -828,10 +842,10 @@ findIndicesI :: Integral a => (Char -> Bool) -> Stream Char -> [a]
 findIndicesI p (Stream next s0 _len) = loop_findIndex 0 s0
   where
     loop_findIndex !i !s = case next s of
-      Done                   -> []
-      Skip    s'             -> loop_findIndex i     s' -- hmm. not caught by QC
-      Yield x s' | p x       -> i : loop_findIndex (i+1) s'
-                 | otherwise -> loop_findIndex (i+1) s'
+        Done                   -> []
+        Skip    s'             -> loop_findIndex i s'  -- hmm. not caught by QC
+        Yield x s' | p x       -> i : loop_findIndex (i + 1) s'
+                   | otherwise -> loop_findIndex (i + 1) s'
 {-# INLINE [0] findIndicesI #-}
 
 -------------------------------------------------------------------------------
@@ -860,10 +874,10 @@ countCharI :: Integral a => Char -> Stream Char -> a
 countCharI a (Stream next s0 _len) = loop 0 s0
   where
     loop !i !s = case next s of
-      Done                   -> i
-      Skip    s'             -> loop i s'
-      Yield x s' | a == x    -> loop (i+1) s'
-                 | otherwise -> loop i s'
+        Done                   -> i
+        Skip    s'             -> loop i s'
+        Yield x s' | a == x    -> loop (i+1) s'
+                   | otherwise -> loop i s'
 {-# INLINE [0] countCharI #-}
 
 streamError :: String -> String -> a
