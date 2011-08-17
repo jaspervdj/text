@@ -842,16 +842,16 @@ findIndicesI p (Stream next s0 _len) = loop_findIndex 0 s0
 zipWith :: (a -> a -> b) -> Stream a -> Stream a -> Stream b
 zipWith f (Stream next0 sa0 len1) (Stream next1 sb0 len2) =
     Stream next (sa0 :*: sb0 :*: N) (smaller len1 len2)
-    where
-      next (sa :*: sb :*: N) = case next0 sa of
-                                 Done -> Done
-                                 Skip sa' -> Skip (sa' :*: sb :*: N)
-                                 Yield a sa' -> Skip (sa' :*: sb :*: J a)
-
-      next (sa' :*: sb :*: J a) = case next1 sb of
-                                    Done -> Done
-                                    Skip sb' -> Skip (sa' :*: sb' :*: J a)
-                                    Yield b sb' -> Yield (f a b) (sa' :*: sb' :*: N)
+  where
+    next (sa :*: sb :*: N) = case next0 sa of
+        Done -> Done
+        Skip sa' -> Skip (sa' :*: sb :*: N)
+        Yield a sa' -> Skip (sa' :*: sb :*: J a)
+    next (sa' :*: sb :*: J a) = case next1 sb of
+        Done -> Done
+        Skip sb' -> Skip (sa' :*: sb' :*: J a)
+        Yield b sb' -> Yield (f a b) (sa' :*: sb' :*: N)
+    {-# INLINE [1] next #-}
 {-# INLINE [0] zipWith #-}
 
 -- | /O(n)/ The 'countCharI' function returns the number of times the
