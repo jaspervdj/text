@@ -800,10 +800,11 @@ filter :: (Char -> Bool) -> Stream Char -> Stream Char
 filter p (Stream next0 s0 len) = Stream next s0 len -- HINT maybe too high
   where
     next !s = case next0 s of
-                Done                   -> Done
-                Skip    s'             -> Skip    s'
-                Yield x s' | p x       -> Yield x s'
-                           | otherwise -> Skip    s'
+        Done                   -> Done
+        Skip    s'             -> Skip    s'
+        Yield x s' | p x       -> Yield x s'
+                   | otherwise -> Skip    s'
+    {-# INLINE [1] next #-}
 {-# INLINE [0] filter #-}
 
 {-# RULES
